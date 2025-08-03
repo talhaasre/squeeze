@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQUEEZE</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="styles/index.css" />
+</head>
+
+<body>
+  <div class="app-container">
+    <div class="app-title">
+      <h1><i class="fas fa-images"></i> SQUEEZE</h1>
+      <p id="dragNotice" style="display: none">
+        Drag the center bar to compare
+      </p>
+    </div>
+
+    <div class="zoom-controls" id="zoomControls" style="display: none">
+      <button class="zoom-btn" id="zoomIn">
+        <i class="fas fa-search-plus"></i>
+      </button>
+      <button class="zoom-btn" id="zoomOut">
+        <i class="fas fa-search-minus"></i>
+      </button>
+      <button class="zoom-btn" id="resetZoom">
+        <i class="fas fa-expand"></i>
+      </button>
+    </div>
+
+    <div class="canvas-container">
+      <canvas id="comparisonCanvas" style="display: none;"></canvas>
+      <div class="comparison-slider" id="comparisonSlider" style="display: none"></div>
+
+      <div class="upload-section" id="dropZone">
+        <h2><i class="fas fa-cloud-upload-alt"></i> Upload Image</h2>
+        <div class="upload-icon"><i class="fas fa-images"></i></div>
+        <p>Drag & drop your image here or</p>
+        <input type="file" id="fileInput" class="file-input" accept="image/*" />
+        <button class="browse-btn" id="browseBtn">
+          <i class="fas fa-folder-open"></i> Browse Files
+        </button>
+        <p>Supports JPG, PNG, WebP, GIF, BMP</p>
+      </div>
+    </div>
+
+    <div class="control-panel hidden" id="controlPanel">
+      <div class="panel-section">
+        <h3><i class="fas fa-cogs"></i> Settings</h3>
+
+        <div class="setting-group">
+          <label for="formatSelect"><i class="fas fa-file-image"></i> Format</label>
+          <select id="formatSelect">
+            <!-- Options will be populated dynamically -->
+          </select>
+          <div class="format-info" id="formatInfo">
+            Original format preserved for best compatibility
+          </div>
+        </div>
+
+        <div class="setting-group quality-group">
+          <label for="qualitySlider"><i class="fas fa-bullseye"></i> Quality:
+            <span id="qualityValue">85</span>%</label>
+          <div class="slider-container">
+            <input type="range" id="qualitySlider" min="40" max="100" value="85" />
+            <div class="value-display" id="qualityDisplay">85%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3><i class="fas fa-chart-bar"></i> Optimization Status</h3>
+
+        <div class="stats">
+          <div class="stat-item stat-item1">
+            <div class="stat-label">
+              <i class="fas fa-image"></i> Original
+            </div>
+            <div class="stat-value-large" id="originalSize">0 KB</div>
+          </div>
+          <div class="stat-item stat-item2">
+            <div class="stat-label">
+              <i class="fas fa-compress-alt"></i> Optimized
+            </div>
+            <div class="stat-value-large" id="optimizedSize">0 KB</div>
+          </div>
+          <div class="stat-item stat-item3">
+            <div class="stat-label">
+              <i class="fas fa-percentage"></i> Reduction
+            </div>
+            <div class="stat-value-large" id="reduction">0%</div>
+          </div>
+          <div class="stat-item stat-item4">
+            <div class="stat-label"><i class="fas fa-save"></i> Saved</div>
+            <div class="stat-value-large" id="savings">0 KB</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="actions">
+          <button class="btn download-btn" id="downloadBtn" disabled>
+            <i class="fas fa-download"></i> Download
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <i class="fas fa-info-circle"></i> All processing happens locally in
+      your browser. <br /> All rights reserved &copy;
+      <?php echo date("Y"); ?> SQUEEZE by
+      <a href="https://asresoft.com" target="_blank" style="color: inherit; text-decoration: none">Asresoft</a>.
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const canvas = document.getElementById("comparisonCanvas");
+    const ctx = canvas.getContext("2d");
+    const fileInput = document.getElementById("fileInput");
+    const browseBtn = document.getElementById("browseBtn");
+    const dropZone = document.getElementById("dropZone");
+    const comparisonSlider = document.getElementById("comparisonSlider");
+    const dragNotice = document.getElementById("dragNotice");
+    const zoomControls = document.getElementById("zoomControls");
+    const formatSelect = document.getElementById("formatSelect");
+    const qualitySlider = document.getElementById("qualitySlider");
+    const qualityValue = document.getElementById("qualityValue");
+    const qualityDisplay = document.getElementById("qualityDisplay");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const originalSize = document.getElementById("originalSize");
+    const optimizedSize = document.getElementById("optimizedSize");
+    const reduction = document.getElementById("reduction");
+    const savings = document.getElementById("savings");
+    const formatInfo = document.getElementById("formatInfo");
+    const controlPanel = document.getElementById("controlPanel");
+    const zoomInBtn = document.getElementById("zoomIn");
+    const zoomOutBtn = document.getElementById("zoomOut");
+    const resetZoomBtn = document.getElementById("resetZoom");
+
+    // State variables
+    let originalImage = new Image();
+    let optimizedImage = new Image();
+    let originalFile = null;
+    let originalFormat = null;
+    let optimizedDataUrl = null;
+    let isDraggingSlider = false;
+    let sliderPosition = 0.5; // 0 to 1
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let startX, startY;
+    let isPanning = false;
+    let canvasWidth, canvasHeight;
+    let isImageLoaded = false;
+
+    // Format file size to KB or MB only (no bytes)
+    function formatFileSize(bytes) {
+      if (bytes < 1024) {
+        return "0 KB";
+      } else if (bytes < 1024 * 1024) {
+        return (bytes / 1024).toFixed(1) + " KB";
+      } else {
+        return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+      }
+    }
+
+    // Initialize canvas
+    function resizeCanvas() {
+      canvasWidth = canvas.parentElement.clientWidth;
+      canvasHeight = canvas.parentElement.clientHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      if (isImageLoaded) {
+        drawImages();
+      }
+    }
+
+    // Draw images on canvas with comparison
+    function drawImages() {
+      if (!originalImage.complete || !optimizedImage.complete) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Calculate dimensions to maintain aspect ratio
+      const imgRatio = originalImage.width / originalImage.height;
+      const canvasRatio = canvasWidth / canvasHeight;
+      let drawWidth, drawHeight;
+
+      if (imgRatio > canvasRatio) {
+        drawWidth = canvasWidth * scale;
+        drawHeight = drawWidth / imgRatio;
+      } else {
+        drawHeight = canvasHeight * scale;
+        drawWidth = drawHeight * imgRatio;
+      }
+
+      // Calculate center position
+      const centerX = (canvasWidth - drawWidth) / 2;
+      const centerY = (canvasHeight - drawHeight) / 2;
+
+      // Apply panning offset
+      const drawX = offsetX + centerX;
+      const drawY = offsetY + centerY;
+
+      // Draw original image (left side)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, canvasWidth * sliderPosition, canvasHeight);
+      ctx.clip();
+      ctx.drawImage(originalImage, drawX, drawY, drawWidth, drawHeight);
+      ctx.restore();
+
+      // Draw optimized image (right side)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(
+        canvasWidth * sliderPosition,
+        0,
+        canvasWidth * (1 - sliderPosition),
+        canvasHeight
+      );
+      ctx.clip();
+      ctx.drawImage(optimizedImage, drawX, drawY, drawWidth, drawHeight);
+      ctx.restore();
+
+      // Position slider
+      const separatorX = canvasWidth * sliderPosition;
+      comparisonSlider.style.left = `${separatorX}px`;
+      canvas.style.display = "block";
+      comparisonSlider.style.display = "block";
+      zoomControls.style.display = "flex";
+      dragNotice.style.display = "block";
+    }
+
+    // Update quality display
+    function updateQualityDisplay() {
+      const value = qualitySlider.value;
+      qualityValue.textContent = value;
+      qualityDisplay.textContent = `${value}%`;
+    }
+
+    // Update format info
+    function updateFormatInfo() {
+      const selectedOption = formatSelect.options[formatSelect.selectedIndex];
+      const formatName = selectedOption.text.split(' ')[0];
+
+      if (formatName === "JPEG") {
+        formatInfo.textContent =
+          "JPEG is best for photographs with good compression";
+      } else if (formatName === "PNG") {
+        formatInfo.textContent =
+          "PNG is best for graphics with transparency support";
+      } else if (formatName === "WebP") {
+        formatInfo.textContent =
+          "WebP provides superior compression with minimal quality loss";
+      } else {
+        formatInfo.textContent =
+          "Original format preserved for best compatibility";
+      }
+    }
+
+    // Get format extension
+    function getFormatExtension(format) {
+      if (format === "image/jpeg") return "jpg";
+      if (format === "image/png") return "png";
+      if (format === "image/webp") return "webp";
+      if (format === "image/gif") return "gif";
+      if (format === "image/bmp") return "bmp";
+      return "jpg";
+    }
+
+    // Format name mapping
+    function getFormatName(format) {
+      const map = {
+        'image/jpeg': 'JPEG',
+        'image/png': 'PNG',
+        'image/webp': 'WebP',
+        'image/gif': 'GIF',
+        'image/bmp': 'BMP'
+      };
+      return map[format] || format;
+    }
+
+    // Optimize image - FIXED COMPRESSION
+    function optimizeImage() {
+      if (!originalFile) return;
+
+      const useFormat = formatSelect.value;
+      const quality = parseInt(qualitySlider.value) / 100;
+
+      // Create off-screen canvas
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+
+      // Calculate new dimensions (reduce size for compression)
+      const maxDimension = 2000; // Max width/height
+      let newWidth = originalImage.width;
+      let newHeight = originalImage.height;
+
+      // Resize only if image is too large
+      if (newWidth > maxDimension || newHeight > maxDimension) {
+        const ratio = Math.min(
+          maxDimension / newWidth,
+          maxDimension / newHeight
+        );
+        newWidth = Math.floor(newWidth * ratio);
+        newHeight = Math.floor(newHeight * ratio);
+      }
+
+      tempCanvas.width = newWidth;
+      tempCanvas.height = newHeight;
+
+      // Draw image with new dimensions
+      tempCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+
+      // Apply optimization with quality setting
+      optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
+
+      // Load optimized image
+      optimizedImage.onload = function () {
+        isImageLoaded = true;
+        drawImages();
+
+        // Calculate stats
+        const originalSizeBytes = originalFile.size;
+        const base64String = optimizedDataUrl.split(",")[1];
+        const optimizedSizeBytes = Math.floor((base64String.length * 3) / 4);
+
+        // Update UI with formatted sizes (KB/MB only)
+        originalSize.textContent = formatFileSize(originalSizeBytes);
+        optimizedSize.textContent = formatFileSize(optimizedSizeBytes);
+
+        const savingsBytes = originalSizeBytes - optimizedSizeBytes;
+        savings.textContent = formatFileSize(savingsBytes);
+
+        const reductionPercent = (
+          (savingsBytes / originalSizeBytes) *
+          100
+        ).toFixed(1);
+        reduction.textContent = `${reductionPercent}%`;
+
+        // Highlight if compression failed
+        if (optimizedSizeBytes > originalSizeBytes) {
+          optimizedSize.style.color = "red";
+          reduction.style.color = "red";
+          savings.style.color = "red";
+        } else {
+          optimizedSize.style.color = "";
+          reduction.style.color = "";
+          savings.style.color = "";
+        }
+
+        downloadBtn.disabled = false;
+
+        // Show control panel
+        controlPanel.classList.remove("hidden");
+      };
+
+      optimizedImage.src = optimizedDataUrl;
+    }
+
+    // Handle file selection
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file && file.type.match("image.*")) {
+        processImageFile(file);
+      }
+    }
+
+    // Process image file
+    function processImageFile(file) {
+      // Reset state for new image
+      resetState();
+
+      originalFile = file;
+      originalFormat = file.type;
+      originalSize.textContent = formatFileSize(file.size);
+
+      // Populate format dropdown with original as first option
+      formatSelect.innerHTML = '';
+
+      // Add original format option
+      const originalFormatName = getFormatName(originalFormat);
+      const originalOption = document.createElement('option');
+      originalOption.value = originalFormat;
+      originalOption.textContent = `${originalFormatName} (Original)`;
+      formatSelect.appendChild(originalOption);
+
+      // Add other supported formats
+      const formats = [
+        { value: 'image/jpeg', name: 'JPEG' },
+        { value: 'image/png', name: 'PNG' },
+        { value: 'image/webp', name: 'WebP' }
+      ];
+
+      formats.forEach(format => {
+        if (format.value !== originalFormat) {
+          const option = document.createElement('option');
+          option.value = format.value;
+          option.textContent = format.name;
+          formatSelect.appendChild(option);
+        }
+      });
+
+      // Set format info
+      updateFormatInfo();
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        originalImage.onload = function () {
+          dropZone.classList.add("hidden");
+          // Reset zoom and pan
+          scale = 1;
+          offsetX = 0;
+          offsetY = 0;
+          optimizeImage();
+        };
+        originalImage.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Reset application state
+    function resetState() {
+      // Clear images
+      originalImage = new Image();
+      optimizedImage = new Image();
+
+      // Reset UI elements
+      originalSize.textContent = "0 KB";
+      optimizedSize.textContent = "0 KB";
+      reduction.textContent = "0%";
+      savings.textContent = "0 KB";
+      downloadBtn.disabled = true;
+
+      // Reset internal state
+      optimizedDataUrl = null;
+      isImageLoaded = false;
+      sliderPosition = 0.5;
+
+      // Hide control panel
+      controlPanel.classList.add("hidden");
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Reset slider position
+      comparisonSlider.style.left = "50%";
+    }
+
+    // Handle drag over
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add("drag-over");
+    }
+
+    // Handle drag leave
+    function handleDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("drag-over");
+    }
+
+    // Handle drop
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove("drag-over");
+
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.match("image.*")) {
+        processImageFile(file);
+      }
+    }
+
+    // Download image
+    function downloadImage() {
+      if (!optimizedDataUrl) return;
+
+      const useFormat = formatSelect.value;
+      const formatExt = getFormatExtension(useFormat);
+
+      // Get base name without extension
+      let baseName = originalFile.name;
+      const lastDot = baseName.lastIndexOf(".");
+      if (lastDot > 0) {
+        baseName = baseName.substring(0, lastDot);
+      }
+
+      const link = document.createElement("a");
+      link.href = optimizedDataUrl;
+      link.download = `${baseName}-optimized.${formatExt}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Handle zoom
+    function handleZoom(delta) {
+      const zoomIntensity = 0.1;
+
+      // Calculate new zoom
+      scale += delta * zoomIntensity;
+
+      // Constrain zoom
+      scale = Math.min(Math.max(0.1, scale), 4);
+
+      drawImages();
+    }
+
+    // Initialize event listeners
+    function initEventListeners() {
+      // File handling
+      browseBtn.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", handleFileSelect);
+      dropZone.addEventListener("dragover", handleDragOver);
+      dropZone.addEventListener("dragleave", handleDragLeave);
+      dropZone.addEventListener("drop", handleDrop);
+
+      // Settings changes trigger auto-optimization
+      qualitySlider.addEventListener("input", function () {
+        updateQualityDisplay();
+        if (originalFile) optimizeImage();
+      });
+
+      formatSelect.addEventListener("change", function () {
+        updateFormatInfo();
+        if (originalFile) optimizeImage();
+      });
+
+      // Download button
+      downloadBtn.addEventListener("click", downloadImage);
+
+      // Slider dragging
+      comparisonSlider.addEventListener("mousedown", function (e) {
+        isDraggingSlider = true;
+        document.body.style.cursor = "ew-resize";
+        document.body.style.userSelect = "none";
+      });
+
+      document.addEventListener("mouseup", function () {
+        isDraggingSlider = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      });
+
+      document.addEventListener("mousemove", function (e) {
+        if (isDraggingSlider && originalFile) {
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          sliderPosition = Math.max(0, Math.min(1, x / rect.width));
+          drawImages();
+        }
+      });
+
+      // Zoom controls
+      zoomInBtn.addEventListener("click", () => handleZoom(1));
+      zoomOutBtn.addEventListener("click", () => handleZoom(-1));
+      resetZoomBtn.addEventListener("click", function () {
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
+        drawImages();
+      });
+
+      // Mouse wheel zoom
+      canvas.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        handleZoom(delta);
+      });
+
+      // Canvas panning
+      canvas.addEventListener("mousedown", function (e) {
+        if (e.button === 0) {
+          // Left mouse button
+          isPanning = true;
+          startX = e.clientX - offsetX;
+          startY = e.clientY - offsetY;
+          canvas.style.cursor = "grabbing";
+        }
+      });
+
+      document.addEventListener("mouseup", function () {
+        isPanning = false;
+        canvas.style.cursor = "default";
+      });
+
+      document.addEventListener("mousemove", function (e) {
+        if (isPanning) {
+          offsetX = e.clientX - startX;
+          offsetY = e.clientY - startY;
+          drawImages();
+        }
+      });
+    }
+
+    // Initialize the app
+    function init() {
+      resizeCanvas();
+      initEventListeners();
+      updateQualityDisplay();
+      updateFormatInfo();
+
+      // Handle window resize
+      window.addEventListener("resize", resizeCanvas);
+    }
+
+    // Start the app
+    init();
+  </script>
+</body>
+
+</html>
