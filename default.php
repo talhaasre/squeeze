@@ -7,6 +7,7 @@
   <title>SQUEEZE</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="styles/index.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 
 <body>
@@ -38,11 +39,25 @@
         <h2><i class="fas fa-cloud-upload-alt"></i> Upload Image</h2>
         <div class="upload-icon"><i class="fas fa-images"></i></div>
         <p>Drag & drop your image here or</p>
-        <input type="file" id="fileInput" class="file-input" accept="image/*" />
+        <input type="file" id="fileInput" class="file-input" accept="image/*" multiple />
         <button class="browse-btn" id="browseBtn">
           <i class="fas fa-folder-open"></i> Browse Files
         </button>
         <p>Supports JPG, PNG, WebP, GIF, BMP</p>
+        <p class="upload-hint">You can select multiple images</p>
+      </div>
+    </div>
+
+    <!-- Multiple Image Gallery Section -->
+    <div class="image-gallery" id="imageGallery" style="display: none;">
+      <div class="gallery-header">
+        <h3><i class="fas fa-images"></i> Uploaded Images</h3>
+        <button class="clear-all-btn" id="clearAllBtn">
+          <i class="fas fa-trash"></i> Clear All
+        </button>
+      </div>
+      <div class="gallery-grid" id="galleryGrid">
+        <!-- Images will be added here dynamically -->
       </div>
     </div>
 
@@ -102,7 +117,7 @@
       <div class="panel-section">
         <div class="actions">
           <button class="btn download-btn" id="downloadBtn" disabled>
-            <i class="fas fa-download"></i> Download
+            <i class="fas fa-download"></i> <span id="downloadBtnText">Download</span>
           </button>
         </div>
       </div>
@@ -140,6 +155,10 @@
     const zoomInBtn = document.getElementById("zoomIn");
     const zoomOutBtn = document.getElementById("zoomOut");
     const resetZoomBtn = document.getElementById("resetZoom");
+    const imageGallery = document.getElementById("imageGallery");
+    const galleryGrid = document.getElementById("galleryGrid");
+    const clearAllBtn = document.getElementById("clearAllBtn");
+    const downloadBtnText = document.getElementById("downloadBtnText");
 
     // State variables
     let originalImage = new Image();
@@ -156,6 +175,8 @@
     let isPanning = false;
     let canvasWidth, canvasHeight;
     let isImageLoaded = false;
+    let uploadedImages = []; // Array to store uploaded images
+    let selectedImageIndex = 0; // Index of currently selected image
 
     // Format file size to KB or MB only (no bytes)
     function formatFileSize(bytes) {
@@ -357,6 +378,13 @@
 
         downloadBtn.disabled = false;
 
+        // Update download button text based on number of images
+        if (uploadedImages.length === 1) {
+          downloadBtnText.textContent = "Download";
+        } else {
+          downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+        }
+
         // Show control panel
         controlPanel.classList.remove("hidden");
       };
@@ -366,10 +394,128 @@
 
     // Handle file selection
     function handleFileSelect(e) {
-      const file = e.target.files[0];
-      if (file && file.type.match("image.*")) {
-        processImageFile(file);
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+        processMultipleFiles(files);
       }
+    }
+
+    // Process multiple files
+    function processMultipleFiles(files) {
+      const imageFiles = files.filter(file => file.type.match("image.*"));
+      
+      if (imageFiles.length === 0) return;
+
+      // Add new images to the array
+      imageFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const imageData = {
+            file: file,
+            dataUrl: e.target.result,
+            name: file.name,
+            size: file.size,
+            type: file.type
+          };
+          
+          uploadedImages.push(imageData);
+          updateGallery();
+          
+          // If this is the first image, select it automatically
+          if (uploadedImages.length === 1) {
+            selectImage(0);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Update gallery display
+    function updateGallery() {
+      if (uploadedImages.length === 0) {
+        imageGallery.style.display = "none";
+        return;
+      }
+
+      imageGallery.style.display = "block";
+      galleryGrid.innerHTML = "";
+
+      uploadedImages.forEach((imageData, index) => {
+        const galleryItem = document.createElement("div");
+        galleryItem.className = `gallery-item ${index === selectedImageIndex ? 'selected' : ''}`;
+        galleryItem.innerHTML = `
+          <div class="gallery-image">
+            <img src="${imageData.dataUrl}" alt="${imageData.name}" />
+            <div class="gallery-overlay">
+              <button class="remove-btn" onclick="removeImage(${index})">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-name">${imageData.name}</div>
+            <div class="gallery-size">${formatFileSize(imageData.size)}</div>
+          </div>
+        `;
+        
+        // Add click event listener to the entire gallery item
+        galleryItem.addEventListener('click', function(e) {
+          // Don't trigger selection if clicking on remove button
+          if (!e.target.closest('.remove-btn')) {
+            selectImage(index);
+          }
+        });
+        
+        galleryGrid.appendChild(galleryItem);
+      });
+
+      // Update download button text based on number of images
+      if (uploadedImages.length === 1) {
+        downloadBtnText.textContent = "Download";
+      } else {
+        downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+      }
+    }
+
+    // Select image for comparison
+    function selectImage(index) {
+      if (index >= 0 && index < uploadedImages.length) {
+        selectedImageIndex = index;
+        const selectedImageData = uploadedImages[index];
+        processImageFile(selectedImageData.file);
+        updateGallery();
+      }
+    }
+
+    // Remove image from gallery
+    function removeImage(index) {
+      uploadedImages.splice(index, 1);
+      
+      if (uploadedImages.length === 0) {
+        // No images left, reset everything and show upload page
+        resetState();
+        imageGallery.style.display = "none";
+      } else {
+        // Update selected index if necessary
+        if (selectedImageIndex >= uploadedImages.length) {
+          selectedImageIndex = uploadedImages.length - 1;
+        }
+        
+        // Select the first image if current selection is invalid
+        if (selectedImageIndex < 0) {
+          selectedImageIndex = 0;
+        }
+        
+        // Process the currently selected image
+        selectImage(selectedImageIndex);
+      }
+    }
+
+    // Clear all images
+    function clearAllImages() {
+      uploadedImages = [];
+      resetState();
+      imageGallery.style.display = "none";
     }
 
     // Process image file
@@ -413,7 +559,7 @@
       const reader = new FileReader();
       reader.onload = function (e) {
         originalImage.onload = function () {
-          dropZone.classList.add("hidden");
+          showCanvasPage();
           // Reset zoom and pan
           scale = 1;
           offsetX = 0;
@@ -423,6 +569,25 @@
         originalImage.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    }
+
+    // Show upload page state
+    function showUploadPage() {
+      dropZone.classList.remove("hidden");
+      canvas.style.display = "none";
+      comparisonSlider.style.display = "none";
+      zoomControls.style.display = "none";
+      dragNotice.style.display = "none";
+      controlPanel.classList.add("hidden");
+    }
+
+    // Show canvas page state
+    function showCanvasPage() {
+      dropZone.classList.add("hidden");
+      canvas.style.display = "block";
+      comparisonSlider.style.display = "block";
+      zoomControls.style.display = "flex";
+      dragNotice.style.display = "block";
     }
 
     // Reset application state
@@ -443,14 +608,14 @@
       isImageLoaded = false;
       sliderPosition = 0.5;
 
-      // Hide control panel
-      controlPanel.classList.add("hidden");
-
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Reset slider position
       comparisonSlider.style.left = "50%";
+      
+      // Show upload page
+      showUploadPage();
     }
 
     // Handle drag over
@@ -473,32 +638,120 @@
       e.stopPropagation();
       dropZone.classList.remove("drag-over");
 
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.match("image.*")) {
-        processImageFile(file);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        processMultipleFiles(files);
       }
     }
 
-    // Download image
-    function downloadImage() {
-      if (!optimizedDataUrl) return;
+    // Generate optimized image for a given file
+    function generateOptimizedImage(file, useFormat, quality) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = function() {
+          const tempCanvas = document.createElement("canvas");
+          const tempCtx = tempCanvas.getContext("2d");
+
+          // Calculate new dimensions (reduce size for compression)
+          const maxDimension = 2000;
+          let newWidth = img.width;
+          let newHeight = img.height;
+
+          if (newWidth > maxDimension || newHeight > maxDimension) {
+            const ratio = Math.min(maxDimension / newWidth, maxDimension / newHeight);
+            newWidth = Math.floor(newWidth * ratio);
+            newHeight = Math.floor(newHeight * ratio);
+          }
+
+          tempCanvas.width = newWidth;
+          tempCanvas.height = newHeight;
+          tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
+
+          const optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
+          const base64String = optimizedDataUrl.split(",")[1];
+          const optimizedBlob = tempCanvas.toBlob((blob) => {
+            resolve({
+              blob: blob,
+              dataUrl: optimizedDataUrl,
+              name: file.name,
+              size: blob.size
+            });
+          }, useFormat, quality);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Download image(s)
+    async function downloadImage() {
+      if (uploadedImages.length === 0) return;
 
       const useFormat = formatSelect.value;
+      const quality = parseInt(qualitySlider.value) / 100;
       const formatExt = getFormatExtension(useFormat);
 
-      // Get base name without extension
-      let baseName = originalFile.name;
-      const lastDot = baseName.lastIndexOf(".");
-      if (lastDot > 0) {
-        baseName = baseName.substring(0, lastDot);
-      }
+      if (uploadedImages.length === 1) {
+        // Single image download
+        if (!optimizedDataUrl) return;
 
-      const link = document.createElement("a");
-      link.href = optimizedDataUrl;
-      link.download = `${baseName}-optimized.${formatExt}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        let baseName = originalFile.name;
+        const lastDot = baseName.lastIndexOf(".");
+        if (lastDot > 0) {
+          baseName = baseName.substring(0, lastDot);
+        }
+
+        const link = document.createElement("a");
+        link.href = optimizedDataUrl;
+        link.download = `${baseName}-optimized.${formatExt}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Multiple images - create zip
+        downloadBtn.disabled = true;
+        downloadBtnText.textContent = "Creating ZIP...";
+
+        try {
+          const zip = new JSZip();
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+          let zipName = `squeezed-${timestamp}`;
+
+          // Generate optimized images for all uploaded images
+          const optimizedImages = [];
+          for (let i = 0; i < uploadedImages.length; i++) {
+            const imageData = uploadedImages[i];
+            const optimized = await generateOptimizedImage(imageData.file, useFormat, quality);
+            
+            // Get base name without extension
+            let baseName = imageData.name;
+            const lastDot = baseName.lastIndexOf(".");
+            if (lastDot > 0) {
+              baseName = baseName.substring(0, lastDot);
+            }
+
+            const fileName = `${baseName}-optimized.${formatExt}`;
+            zip.file(fileName, optimized.blob);
+            optimizedImages.push(optimized);
+          }
+
+          // Generate and download zip
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(zipBlob);
+          link.download = `${zipName}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Update download button text
+          downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+        } catch (error) {
+          console.error("Error creating ZIP:", error);
+          downloadBtnText.textContent = "Download";
+        } finally {
+          downloadBtn.disabled = false;
+        }
+      }
     }
 
     // Handle zoom
@@ -522,6 +775,9 @@
       dropZone.addEventListener("dragover", handleDragOver);
       dropZone.addEventListener("dragleave", handleDragLeave);
       dropZone.addEventListener("drop", handleDrop);
+
+      // Clear all button
+      clearAllBtn.addEventListener("click", clearAllImages);
 
       // Settings changes trigger auto-optimization
       qualitySlider.addEventListener("input", function () {
