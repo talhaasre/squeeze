@@ -77,10 +77,10 @@
 
         <div class="setting-group quality-group">
           <label for="qualitySlider"><i class="fas fa-bullseye"></i> Quality:
-            <span id="qualityValue">85</span>%</label>
+            <span id="qualityValue">60</span>%</label>
           <div class="slider-container">
-            <input type="range" id="qualitySlider" min="40" max="100" value="85" />
-            <div class="value-display" id="qualityDisplay">85%</div>
+            <input type="range" id="qualitySlider" min="40" max="100" value="60" />
+            <div class="value-display" id="qualityDisplay">60%</div>
           </div>
         </div>
       </div>
@@ -110,6 +110,25 @@
           <div class="stat-item stat-item4">
             <div class="stat-label"><i class="fas fa-save"></i> Saved</div>
             <div class="stat-value-large" id="savings">0 KB</div>
+          </div>
+        </div>
+        
+        <!-- ZIP Size Estimation for Multiple Images -->
+        <div class="zip-estimation" id="zipEstimation" style="display: none;">
+          <h4><i class="fas fa-file-archive"></i> ZIP Size Estimation</h4>
+          <div class="zip-stats">
+            <div class="zip-stat-item">
+              <div class="zip-stat-label">Original ZIP:</div>
+              <div class="zip-stat-value" id="originalZipSize">0 KB</div>
+            </div>
+            <div class="zip-stat-item">
+              <div class="zip-stat-label">Optimized ZIP:</div>
+              <div class="zip-stat-value" id="optimizedZipSize">0 KB</div>
+            </div>
+            <div class="zip-stat-item">
+              <div class="zip-stat-label">Total Savings:</div>
+              <div class="zip-stat-value" id="totalZipSavings">0 KB</div>
+            </div>
           </div>
         </div>
       </div>
@@ -159,6 +178,16 @@
     const galleryGrid = document.getElementById("galleryGrid");
     const clearAllBtn = document.getElementById("clearAllBtn");
     const downloadBtnText = document.getElementById("downloadBtnText");
+    const zipEstimation = document.getElementById("zipEstimation");
+    const originalZipSize = document.getElementById("originalZipSize");
+    const optimizedZipSize = document.getElementById("optimizedZipSize");
+    const totalZipSavings = document.getElementById("totalZipSavings");
+
+    // Configuration constants
+    const DEFAULT_QUALITY = 60; // Default quality percentage
+    const DEFAULT_MAX_DIMENSION = 2000; // Maximum width/height for optimization
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+    const MAX_FILES = 20; // Maximum 20 files at once
 
     // State variables
     let originalImage = new Image();
@@ -177,6 +206,8 @@
     let isImageLoaded = false;
     let uploadedImages = []; // Array to store uploaded images
     let selectedImageIndex = 0; // Index of currently selected image
+    let individualSettings = []; // Array to store individual settings for each image
+    let updateGalleryTimeout = null; // For debounced gallery updates
 
     // Format file size to KB or MB only (no bytes)
     function formatFileSize(bytes) {
@@ -265,6 +296,38 @@
       qualityDisplay.textContent = `${value}%`;
     }
 
+    // Update format dropdown with individual settings
+    function updateFormatDropdown(originalFormat, selectedFormat) {
+      formatSelect.innerHTML = '';
+
+      // Add original format option
+      const originalFormatName = getFormatName(originalFormat);
+      const originalOption = document.createElement('option');
+      originalOption.value = originalFormat;
+      originalOption.textContent = `${originalFormatName} (Original)`;
+      formatSelect.appendChild(originalOption);
+
+      // Add other supported formats
+      const formats = [
+        { value: 'image/jpeg', name: 'JPEG' },
+        { value: 'image/png', name: 'PNG' },
+        { value: 'image/webp', name: 'WebP' }
+      ];
+
+      formats.forEach(format => {
+        if (format.value !== originalFormat) {
+          const option = document.createElement('option');
+          option.value = format.value;
+          option.textContent = format.name;
+          formatSelect.appendChild(option);
+        }
+      });
+
+      // Set the selected format
+      formatSelect.value = selectedFormat;
+      updateFormatInfo();
+    }
+
     // Update format info
     function updateFormatInfo() {
       const selectedOption = formatSelect.options[formatSelect.selectedIndex];
@@ -311,8 +374,10 @@
     function optimizeImage() {
       if (!originalFile) return;
 
-      const useFormat = formatSelect.value;
-      const quality = parseInt(qualitySlider.value) / 100;
+      // Use individual settings for the selected image
+      const settings = individualSettings[selectedImageIndex] || { quality: DEFAULT_QUALITY, format: originalFile.type };
+      const useFormat = settings.format;
+      const quality = settings.quality / 100;
 
       // Create off-screen canvas
       const tempCanvas = document.createElement("canvas");
@@ -406,9 +471,40 @@
       
       if (imageFiles.length === 0) return;
 
-      // Add new images to the array
-      imageFiles.forEach(file => {
+      // Check file sizes and limit processing
+      if (imageFiles.length > MAX_FILES) {
+        alert(`Too many files selected. Please select ${MAX_FILES} or fewer images.`);
+        return;
+      }
+      
+      const oversizedFiles = imageFiles.filter(file => file.size > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        alert(`Some files are too large (max ${formatFileSize(MAX_FILE_SIZE)} each). Please resize them before uploading.`);
+        return;
+      }
+
+      // Show loading state
+      if (imageFiles.length > 1) {
+        downloadBtnText.textContent = `Processing ${imageFiles.length} images...`;
+      }
+
+      // Process images sequentially to avoid blocking
+      let processedCount = 0;
+      
+              function processNextImage() {
+          if (processedCount >= imageFiles.length) {
+            // All images processed
+            updateGallery();
+            // Always select the first image when processing is complete
+            if (uploadedImages.length > 0) {
+              selectImage(0);
+            }
+            return;
+          }
+
+        const file = imageFiles[processedCount];
         const reader = new FileReader();
+        
         reader.onload = function(e) {
           const imageData = {
             file: file,
@@ -419,15 +515,100 @@
           };
           
           uploadedImages.push(imageData);
-          updateGallery();
           
-          // If this is the first image, select it automatically
-          if (uploadedImages.length === 1) {
+          // Initialize individual settings for this image
+          const imageIndex = uploadedImages.length - 1;
+          individualSettings[imageIndex] = {
+            quality: DEFAULT_QUALITY, // Default quality
+            format: file.type, // Default to original format
+            optimizedSize: null,
+            reduction: 0
+          };
+          
+          processedCount++;
+          
+          // If this is the first image, select it immediately
+          if (processedCount === 1) {
             selectImage(0);
           }
+          
+          // Update progress for multiple images
+          if (imageFiles.length > 1) {
+            downloadBtnText.textContent = `Processing ${processedCount}/${imageFiles.length} images...`;
+          }
+          
+          // Process next image with a small delay to prevent blocking
+          setTimeout(processNextImage, 10);
         };
+        
         reader.readAsDataURL(file);
+      }
+      
+      // Start processing
+      processNextImage();
+    }
+
+    // Calculate and update ZIP size estimation
+    function updateZipEstimation() {
+      if (uploadedImages.length <= 1) {
+        zipEstimation.style.display = "none";
+        return;
+      }
+
+      // Calculate original total size
+      const originalTotalSize = uploadedImages.reduce((total, image) => total + image.size, 0);
+      
+      // Estimate optimized sizes based on individual settings
+      let estimatedOptimizedSize = 0;
+      
+      uploadedImages.forEach((imageData, index) => {
+        const settings = individualSettings[index] || { quality: DEFAULT_QUALITY, format: imageData.type };
+        const quality = settings.quality / 100;
+        
+        // Rough estimation based on quality and format
+        let compressionRatio = 1;
+        
+        if (settings.format === 'image/jpeg') {
+          compressionRatio = 0.3 + (0.7 * quality); // JPEG compression
+        } else if (settings.format === 'image/png') {
+          compressionRatio = 0.5 + (0.5 * quality); // PNG compression
+        } else if (settings.format === 'image/webp') {
+          compressionRatio = 0.2 + (0.6 * quality); // WebP compression
+        } else {
+          compressionRatio = 0.8 + (0.2 * quality); // Other formats
+        }
+        
+        estimatedOptimizedSize += imageData.size * compressionRatio;
       });
+
+      // Add ZIP overhead (roughly 2% of total size)
+      const zipOverhead = estimatedOptimizedSize * 0.02;
+      const finalOptimizedSize = estimatedOptimizedSize + zipOverhead;
+      
+      // Calculate savings
+      const totalSavings = originalTotalSize - finalOptimizedSize;
+      
+      // Update UI
+      originalZipSize.textContent = formatFileSize(originalTotalSize);
+      optimizedZipSize.textContent = formatFileSize(finalOptimizedSize);
+      totalZipSavings.textContent = formatFileSize(totalSavings);
+      
+      // Color coding for savings
+      if (totalSavings > 0) {
+        totalZipSavings.style.color = "var(--success)";
+        optimizedZipSize.style.color = "var(--success)";
+      } else {
+        totalZipSavings.style.color = "var(--danger)";
+        optimizedZipSize.style.color = "var(--danger)";
+      }
+    }
+
+    // Debounced gallery update for better performance
+    function debouncedUpdateGallery() {
+      if (updateGalleryTimeout) {
+        clearTimeout(updateGalleryTimeout);
+      }
+      updateGalleryTimeout = setTimeout(updateGallery, 50);
     }
 
     // Update gallery display
@@ -438,14 +619,17 @@
       }
 
       imageGallery.style.display = "block";
-      galleryGrid.innerHTML = "";
+      
+      // Use DocumentFragment for better performance
+      const fragment = document.createDocumentFragment();
 
       uploadedImages.forEach((imageData, index) => {
+        const settings = individualSettings[index] || { quality: DEFAULT_QUALITY, format: imageData.type };
         const galleryItem = document.createElement("div");
         galleryItem.className = `gallery-item ${index === selectedImageIndex ? 'selected' : ''}`;
         galleryItem.innerHTML = `
           <div class="gallery-image">
-            <img src="${imageData.dataUrl}" alt="${imageData.name}" />
+            <img src="${imageData.dataUrl}" alt="${imageData.name}" loading="lazy" />
             <div class="gallery-overlay">
               <button class="remove-btn" onclick="removeImage(${index})">
                 <i class="fas fa-times"></i>
@@ -455,6 +639,10 @@
           <div class="gallery-info">
             <div class="gallery-name">${imageData.name}</div>
             <div class="gallery-size">${formatFileSize(imageData.size)}</div>
+            <div class="gallery-settings">
+              <div class="quality-indicator">Q: ${settings.quality}%</div>
+              <div class="format-indicator">${getFormatName(settings.format)}</div>
+            </div>
           </div>
         `;
         
@@ -466,14 +654,21 @@
           }
         });
         
-        galleryGrid.appendChild(galleryItem);
+        fragment.appendChild(galleryItem);
       });
+
+      // Clear and update gallery in one operation
+      galleryGrid.innerHTML = "";
+      galleryGrid.appendChild(fragment);
 
       // Update download button text based on number of images
       if (uploadedImages.length === 1) {
         downloadBtnText.textContent = "Download";
+        zipEstimation.style.display = "none";
       } else {
         downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+        zipEstimation.style.display = "block";
+        updateZipEstimation();
       }
     }
 
@@ -482,6 +677,18 @@
       if (index >= 0 && index < uploadedImages.length) {
         selectedImageIndex = index;
         const selectedImageData = uploadedImages[index];
+        
+        // Load individual settings for this image
+        const settings = individualSettings[index] || { quality: DEFAULT_QUALITY, format: selectedImageData.type };
+        
+        // Update UI with individual settings
+        qualitySlider.value = settings.quality;
+        qualityValue.textContent = settings.quality;
+        qualityDisplay.textContent = `${settings.quality}%`;
+        
+        // Update format dropdown
+        updateFormatDropdown(selectedImageData.type, settings.format);
+        
         processImageFile(selectedImageData.file);
         updateGallery();
       }
@@ -490,6 +697,7 @@
     // Remove image from gallery
     function removeImage(index) {
       uploadedImages.splice(index, 1);
+      individualSettings.splice(index, 1);
       
       if (uploadedImages.length === 0) {
         // No images left, reset everything and show upload page
@@ -514,44 +722,21 @@
     // Clear all images
     function clearAllImages() {
       uploadedImages = [];
+      individualSettings = [];
       resetState();
       imageGallery.style.display = "none";
     }
 
     // Process image file
     function processImageFile(file) {
-      // Reset state for new image
-      resetState();
+      // Don't reset state if we're just switching images
+      if (!originalFile) {
+        resetState();
+      }
 
       originalFile = file;
       originalFormat = file.type;
       originalSize.textContent = formatFileSize(file.size);
-
-      // Populate format dropdown with original as first option
-      formatSelect.innerHTML = '';
-
-      // Add original format option
-      const originalFormatName = getFormatName(originalFormat);
-      const originalOption = document.createElement('option');
-      originalOption.value = originalFormat;
-      originalOption.textContent = `${originalFormatName} (Original)`;
-      formatSelect.appendChild(originalOption);
-
-      // Add other supported formats
-      const formats = [
-        { value: 'image/jpeg', name: 'JPEG' },
-        { value: 'image/png', name: 'PNG' },
-        { value: 'image/webp', name: 'WebP' }
-      ];
-
-      formats.forEach(format => {
-        if (format.value !== originalFormat) {
-          const option = document.createElement('option');
-          option.value = format.value;
-          option.textContent = format.name;
-          formatSelect.appendChild(option);
-        }
-      });
 
       // Set format info
       updateFormatInfo();
@@ -588,6 +773,7 @@
       comparisonSlider.style.display = "block";
       zoomControls.style.display = "flex";
       dragNotice.style.display = "block";
+      // Don't show control panel here - it will be shown when optimization is complete
     }
 
     // Reset application state
@@ -653,12 +839,11 @@
           const tempCtx = tempCanvas.getContext("2d");
 
           // Calculate new dimensions (reduce size for compression)
-          const maxDimension = 2000;
           let newWidth = img.width;
           let newHeight = img.height;
 
-          if (newWidth > maxDimension || newHeight > maxDimension) {
-            const ratio = Math.min(maxDimension / newWidth, maxDimension / newHeight);
+          if (newWidth > DEFAULT_MAX_DIMENSION || newHeight > DEFAULT_MAX_DIMENSION) {
+            const ratio = Math.min(DEFAULT_MAX_DIMENSION / newWidth, DEFAULT_MAX_DIMENSION / newHeight);
             newWidth = Math.floor(newWidth * ratio);
             newHeight = Math.floor(newHeight * ratio);
           }
@@ -694,6 +879,10 @@
         // Single image download
         if (!optimizedDataUrl) return;
 
+        // Use individual settings for single image
+        const settings = individualSettings[0] || { quality: DEFAULT_QUALITY, format: originalFile.type };
+        const singleFormatExt = getFormatExtension(settings.format);
+
         let baseName = originalFile.name;
         const lastDot = baseName.lastIndexOf(".");
         if (lastDot > 0) {
@@ -702,7 +891,7 @@
 
         const link = document.createElement("a");
         link.href = optimizedDataUrl;
-        link.download = `${baseName}-optimized.${formatExt}`;
+        link.download = `${baseName}-optimized.${singleFormatExt}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -716,11 +905,12 @@
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
           let zipName = `squeezed-${timestamp}`;
 
-          // Generate optimized images for all uploaded images
+          // Generate optimized images for all uploaded images with individual settings
           const optimizedImages = [];
           for (let i = 0; i < uploadedImages.length; i++) {
             const imageData = uploadedImages[i];
-            const optimized = await generateOptimizedImage(imageData.file, useFormat, quality);
+            const settings = individualSettings[i] || { quality: DEFAULT_QUALITY, format: imageData.type };
+            const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
             
             // Get base name without extension
             let baseName = imageData.name;
@@ -729,7 +919,7 @@
               baseName = baseName.substring(0, lastDot);
             }
 
-            const fileName = `${baseName}-optimized.${formatExt}`;
+            const fileName = `${baseName}-optimized.${getFormatExtension(settings.format)}`;
             zip.file(fileName, optimized.blob);
             optimizedImages.push(optimized);
           }
@@ -779,14 +969,36 @@
       // Clear all button
       clearAllBtn.addEventListener("click", clearAllImages);
 
-      // Settings changes trigger auto-optimization
+      // Settings changes trigger auto-optimization and save individual settings
       qualitySlider.addEventListener("input", function () {
         updateQualityDisplay();
+        
+        // Save individual settings for current image
+        if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
+          individualSettings[selectedImageIndex].quality = parseInt(qualitySlider.value);
+          // Update ZIP estimation when quality changes
+          if (uploadedImages.length > 1) {
+            updateZipEstimation();
+          }
+        }
+        
         if (originalFile) optimizeImage();
       });
 
       formatSelect.addEventListener("change", function () {
         updateFormatInfo();
+        
+        // Save individual settings for current image
+        if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
+          individualSettings[selectedImageIndex].format = formatSelect.value;
+          // Update gallery to reflect the format change
+          debouncedUpdateGallery();
+          // Update ZIP estimation when format changes
+          if (uploadedImages.length > 1) {
+            updateZipEstimation();
+          }
+        }
+        
         if (originalFile) optimizeImage();
       });
 
