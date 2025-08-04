@@ -31,6 +31,26 @@
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TCWTHLTF"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
+  
+  <!-- Error Popup Modal -->
+  <div id="errorModal" class="error-modal">
+    <div class="error-modal-content">
+      <div class="error-modal-header">
+        <h3><i class="fas fa-exclamation-triangle"></i> Attention</h3>
+        <button class="error-modal-close" onclick="closeErrorModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="error-modal-body">
+        <div id="errorMessage"></div>
+      </div>
+              <div class="error-modal-footer" id="errorModalFooter">
+          <button class="btn btn-danger" onclick="closeErrorModal()">Cancel</button>
+          <button class="btn btn-success" onclick="proceedWithValidFiles()">Continue</button>
+        </div>
+    </div>
+  </div>
+
   <div class="app-container">
     <div class="app-title">
       <h1><i class="fas fa-images"></i> SQUEEZE</h1>
@@ -59,11 +79,11 @@
         <h2><i class="fas fa-cloud-upload-alt"></i> Upload Image</h2>
         <div class="upload-icon"><i class="fas fa-images"></i></div>
         <p>Drag & drop your image here or</p>
-        <input type="file" id="fileInput" class="file-input" accept="image/*" multiple />
+        <input type="file" id="fileInput" class="file-input" accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp" multiple />
         <button class="browse-btn" id="browseBtn">
           <i class="fas fa-folder-open"></i> Browse Files
         </button>
-        <p>Supports JPG, PNG, WebP, GIF, BMP</p>
+        <p>Supports JPG, PNG, WebP, BMP (Static images only)</p>
         <p class="upload-hint">You can select multiple images</p>
       </div>
     </div>
@@ -76,22 +96,24 @@
           <i class="fas fa-trash"></i> Clear All
         </button>
       </div>
-      <div class="gallery-grid" id="galleryGrid">
-        <!-- Images will be added here dynamically -->
+      <div class="gallery-scroll-container">
+        <div class="gallery-grid" id="galleryGrid">
+          <!-- Images will be added here dynamically -->
+        </div>
       </div>
     </div>
 
     <div class="control-panel hidden" id="controlPanel">
       <div class="panel-section">
-        <h3><i class="fas fa-cogs"></i> Settings</h3>
-
         <div class="setting-group">
-          <label for="formatSelect"><i class="fas fa-file-image"></i> Format</label>
-          <select id="formatSelect">
-            <!-- Options will be populated dynamically -->
-          </select>
-          <div class="format-info" id="formatInfo">
-            Original format preserved for best compatibility
+          <label><i class="fas fa-image"></i> Format</label>
+          <div class="format-controls">
+            <select id="formatSelect">
+              <!-- Options will be populated dynamically -->
+            </select>
+            <button class="btn btn-secondary" id="applyToAllBtn" style="display: none; background: #4cc9f0;" title="Apply this format to all images">
+              Apply All
+            </button>
           </div>
         </div>
 
@@ -106,8 +128,6 @@
       </div>
 
       <div class="panel-section">
-        <h3><i class="fas fa-chart-bar"></i> Optimization Status</h3>
-
         <div class="stats">
           <div class="stat-item stat-item1">
             <div class="stat-label">
@@ -120,35 +140,6 @@
               <i class="fas fa-compress-alt"></i> Optimized
             </div>
             <div class="stat-value-large" id="optimizedSize">0 KB</div>
-          </div>
-          <div class="stat-item stat-item3">
-            <div class="stat-label">
-              <i class="fas fa-percentage"></i> Reduction
-            </div>
-            <div class="stat-value-large" id="reduction">0%</div>
-          </div>
-          <div class="stat-item stat-item4">
-            <div class="stat-label"><i class="fas fa-save"></i> Saved</div>
-            <div class="stat-value-large" id="savings">0 KB</div>
-          </div>
-        </div>
-        
-        <!-- ZIP Size Estimation for Multiple Images -->
-        <div class="zip-estimation" id="zipEstimation" style="display: none;">
-          <h4><i class="fas fa-file-archive"></i> ZIP Size Estimation</h4>
-          <div class="zip-stats">
-            <div class="zip-stat-item">
-              <div class="zip-stat-label">Original ZIP:</div>
-              <div class="zip-stat-value" id="originalZipSize">0 KB</div>
-            </div>
-            <div class="zip-stat-item">
-              <div class="zip-stat-label">Optimized ZIP:</div>
-              <div class="zip-stat-value" id="optimizedZipSize">0 KB</div>
-            </div>
-            <div class="zip-stat-item">
-              <div class="zip-stat-label">Total Savings:</div>
-              <div class="zip-stat-value" id="totalZipSavings">0 KB</div>
-            </div>
           </div>
         </div>
       </div>
@@ -187,7 +178,6 @@
     const downloadBtn = document.getElementById("downloadBtn");
     const originalSize = document.getElementById("originalSize");
     const optimizedSize = document.getElementById("optimizedSize");
-    const reduction = document.getElementById("reduction");
     const savings = document.getElementById("savings");
     const formatInfo = document.getElementById("formatInfo");
     const controlPanel = document.getElementById("controlPanel");
@@ -198,16 +188,11 @@
     const galleryGrid = document.getElementById("galleryGrid");
     const clearAllBtn = document.getElementById("clearAllBtn");
     const downloadBtnText = document.getElementById("downloadBtnText");
-    const zipEstimation = document.getElementById("zipEstimation");
-    const originalZipSize = document.getElementById("originalZipSize");
-    const optimizedZipSize = document.getElementById("optimizedZipSize");
-    const totalZipSavings = document.getElementById("totalZipSavings");
+    const applyToAllBtn = document.getElementById("applyToAllBtn");
 
-    // Configuration constants
-    const DEFAULT_QUALITY = 60; // Default quality percentage
-    const DEFAULT_MAX_DIMENSION = 2000; // Maximum width/height for optimization
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
-    const MAX_FILES = 20; // Maximum 20 files at once
+          // Configuration constants
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
+      const MAX_FILES = 20; // Maximum 20 files at once
 
     // State variables
     let originalImage = new Image();
@@ -228,6 +213,7 @@
     let selectedImageIndex = 0; // Index of currently selected image
     let individualSettings = []; // Array to store individual settings for each image
     let updateGalleryTimeout = null; // For debounced gallery updates
+    let hasIndividualFormats = false; // Track if individual formats have been set
 
     // Format file size to KB or MB only (no bytes)
     function formatFileSize(bytes) {
@@ -327,11 +313,12 @@
       originalOption.textContent = `${originalFormatName} (Original)`;
       formatSelect.appendChild(originalOption);
 
-      // Add other supported formats
+      // Add all supported formats (except the original one)
       const formats = [
         { value: 'image/jpeg', name: 'JPEG' },
         { value: 'image/png', name: 'PNG' },
-        { value: 'image/webp', name: 'WebP' }
+        { value: 'image/webp', name: 'WebP' },
+        { value: 'image/bmp', name: 'BMP' }
       ];
 
       formats.forEach(format => {
@@ -345,12 +332,37 @@
 
       // Set the selected format
       formatSelect.value = selectedFormat;
-      updateFormatInfo();
+      
+      // If the selected format is not in the dropdown, add it
+      if (!formatSelect.value && selectedFormat) {
+        const selectedFormatName = getFormatName(selectedFormat);
+        const selectedOption = document.createElement('option');
+        selectedOption.value = selectedFormat;
+        selectedOption.textContent = selectedFormatName;
+        formatSelect.appendChild(selectedOption);
+        formatSelect.value = selectedFormat;
+      }
+      
+      // Ensure the selected format is always visible
+      if (selectedFormat && !formatSelect.value) {
+        console.warn('Format not found in dropdown:', selectedFormat);
+        // Fallback: set to original format if selected format is not available
+        formatSelect.value = originalFormat;
+      }
     }
 
     // Update format info
     function updateFormatInfo() {
+      // Check if formatSelect has options and formatInfo exists
+      if (!formatSelect || formatSelect.options.length === 0 || !formatInfo) {
+        return;
+      }
+      
       const selectedOption = formatSelect.options[formatSelect.selectedIndex];
+      if (!selectedOption) {
+        return;
+      }
+      
       const formatName = selectedOption.text.split(' ')[0];
 
       if (formatName === "JPEG") {
@@ -362,6 +374,9 @@
       } else if (formatName === "WebP") {
         formatInfo.textContent =
           "WebP provides superior compression with minimal quality loss";
+      } else if (formatName === "BMP") {
+        formatInfo.textContent =
+          "BMP is uncompressed format, consider converting for smaller files";
       } else {
         formatInfo.textContent =
           "Original format preserved for best compatibility";
@@ -373,7 +388,6 @@
       if (format === "image/jpeg") return "jpg";
       if (format === "image/png") return "png";
       if (format === "image/webp") return "webp";
-      if (format === "image/gif") return "gif";
       if (format === "image/bmp") return "bmp";
       return "jpg";
     }
@@ -384,10 +398,20 @@
         'image/jpeg': 'JPEG',
         'image/png': 'PNG',
         'image/webp': 'WebP',
-        'image/gif': 'GIF',
         'image/bmp': 'BMP'
       };
       return map[format] || format;
+    }
+
+    function getOptimalQuality(file, format) {
+      const qualityMap = {
+        'image/jpeg': 60,  // Aggressive compression for JPEG
+        'image/png': 70,   // Moderate compression for PNG
+        'image/webp': 65,  // Excellent compression for WebP
+        'image/bmp': 85    // Minimal compression for BMP
+      };
+      
+      return qualityMap[format] || 70; // Default to 70% for unknown formats
     }
 
     // Optimize image - FIXED COMPRESSION
@@ -395,7 +419,7 @@
       if (!originalFile) return;
 
       // Use individual settings for the selected image
-      const settings = individualSettings[selectedImageIndex] || { quality: DEFAULT_QUALITY, format: originalFile.type };
+      const settings = individualSettings[selectedImageIndex] || { quality: 85, format: originalFile.type };
       const useFormat = settings.format;
       const quality = settings.quality / 100;
 
@@ -437,28 +461,30 @@
         const base64String = optimizedDataUrl.split(",")[1];
         const optimizedSizeBytes = Math.floor((base64String.length * 3) / 4);
 
-        // Update UI with formatted sizes (KB/MB only)
+        // Check if optimization actually reduced size
+        if (optimizedSizeBytes > originalSizeBytes) {
+          // If optimization increased size, use original image
+          optimizedImage.src = URL.createObjectURL(originalFile);
+          optimizedDataUrl = URL.createObjectURL(originalFile);
+          
+          // Update stats to show no optimization
+          originalSize.textContent = formatFileSize(originalSizeBytes);
+          optimizedSize.textContent = formatFileSize(originalSizeBytes);
+          
+          // Update individual settings to prevent future optimization attempts
+          if (individualSettings[selectedImageIndex]) {
+            individualSettings[selectedImageIndex].quality = 100;
+          }
+        } else {
+          // Optimization was successful
         originalSize.textContent = formatFileSize(originalSizeBytes);
         optimizedSize.textContent = formatFileSize(optimizedSizeBytes);
 
         const savingsBytes = originalSizeBytes - optimizedSizeBytes;
-        savings.textContent = formatFileSize(savingsBytes);
-
         const reductionPercent = (
           (savingsBytes / originalSizeBytes) *
           100
         ).toFixed(1);
-        reduction.textContent = `${reductionPercent}%`;
-
-        // Highlight if compression failed
-        if (optimizedSizeBytes > originalSizeBytes) {
-          optimizedSize.style.color = "red";
-          reduction.style.color = "red";
-          savings.style.color = "red";
-        } else {
-          optimizedSize.style.color = "";
-          reduction.style.color = "";
-          savings.style.color = "";
         }
 
         downloadBtn.disabled = false;
@@ -485,34 +511,132 @@
       }
     }
 
-    // Process multiple files
-    function processMultipleFiles(files) {
-      const imageFiles = files.filter(file => file.type.match("image.*"));
+    // Show error modal
+    function showErrorModal(message, hasValidFiles = true) {
+      const errorModal = document.getElementById('errorModal');
+      const errorMessage = document.getElementById('errorMessage');
       
-      if (imageFiles.length === 0) return;
-
-      // Check file sizes and limit processing
-      if (imageFiles.length > MAX_FILES) {
-        alert(`Too many files selected. Please select ${MAX_FILES} or fewer images.`);
-        return;
+              // Check if message contains file lists and format accordingly
+        if (message.includes('Oversized files (max 50 MB each):') || message.includes('Unsupported files:') || message.includes('Valid files:') || message.includes('Excess files:') || message.includes('Too many files selected')) {
+        // Format as HTML with icons
+        let htmlMessage = '';
+        const lines = message.split('\n');
+        
+        let currentSection = '';
+        
+                  for (let line of lines) {
+            if (line.includes('Too many files selected')) {
+              currentSection = 'info';
+              htmlMessage += `<div class="error-section"><h4><i class="fas fa-info-circle text-info"></i> ${line}</h4>`;
+            } else if (line.includes('Excess files:')) {
+              currentSection = 'excess';
+              htmlMessage += `<div class="error-section"><h4><i class="fas fa-minus-circle text-secondary"></i> ${line}</h4>`;
+            } else if (line.includes('Oversized files (max 50 MB each):')) {
+              currentSection = 'oversized';
+              htmlMessage += `<div class="error-section"><h4><i class="fas fa-exclamation-triangle text-warning"></i> ${line}</h4>`;
+            } else if (line.includes('Unsupported files:')) {
+              currentSection = 'unsupported';
+              htmlMessage += `<div class="error-section"><h4><i class="fas fa-times-circle text-danger"></i> ${line}</h4>`;
+            } else if (line.includes('Valid files:')) {
+              currentSection = 'valid';
+              htmlMessage += `<div class="error-section"><h4><i class="fas fa-check-circle text-success"></i> ${line}</h4>`;
+                        } else if (line.match(/^\d+\./)) {
+              // File list item
+              if (currentSection === 'oversized' || currentSection === 'unsupported' || currentSection === 'excess') {
+                htmlMessage += `<div class="file-item invalid"><i class="fas fa-times text-danger"></i> ${line}</div>`;
+              } else if (currentSection === 'valid') {
+                htmlMessage += `<div class="file-item valid"><i class="fas fa-check text-success"></i> ${line}</div>`;
+              } else {
+                htmlMessage += `<div class="file-item">${line}</div>`;
+              }
+          } else if (line.trim() === '') {
+            htmlMessage += '';
+          } else {
+            htmlMessage += `<p>${line}</p>`;
+          }
+        }
+        
+        errorMessage.innerHTML = htmlMessage;
+      } else {
+        // Regular text message
+        errorMessage.textContent = message;
       }
       
-      const oversizedFiles = imageFiles.filter(file => file.size > MAX_FILE_SIZE);
-      if (oversizedFiles.length > 0) {
-        alert(`Some files are too large (max ${formatFileSize(MAX_FILE_SIZE)} each). Please resize them before uploading.`);
-        return;
+      // Show appropriate buttons based on whether there are valid files
+      const errorModalFooter = document.getElementById('errorModalFooter');
+      if (hasValidFiles) {
+        // Show Cancel and Continue buttons
+        errorModalFooter.innerHTML = `
+          <button class="btn btn-danger" onclick="closeErrorModal()">Cancel</button>
+          <button class="btn btn-success" onclick="proceedWithValidFiles()">Continue</button>
+        `;
+      } else {
+        // Show only Okay button
+        errorModalFooter.innerHTML = `
+          <button class="btn btn-danger" onclick="closeErrorModalAndReset()" style="max-width: fit-content;">Try Again</button>
+        `;
       }
-
-      // Show loading state
-      if (imageFiles.length > 1) {
-        downloadBtnText.textContent = `Processing ${imageFiles.length} images...`;
-      }
-
-      // Process images sequentially to avoid blocking
-      let processedCount = 0;
       
-              function processNextImage() {
-          if (processedCount >= imageFiles.length) {
+      errorModal.style.display = 'flex';
+    }
+
+    // Close error modal
+    function closeErrorModal() {
+      const errorModal = document.getElementById('errorModal');
+      errorModal.style.display = 'none';
+    }
+
+    // Close error modal and reset to index page
+    function closeErrorModalAndReset() {
+      const errorModal = document.getElementById('errorModal');
+      errorModal.style.display = 'none';
+      
+      // Reset application state
+      uploadedImages = [];
+      individualSettings = [];
+      selectedImageIndex = 0;
+      
+      // Clear any pending files
+      window.pendingValidFiles = null;
+      window.pendingOversizedFiles = null;
+      window.pendingUnsupportedFiles = null;
+      
+      // Reset UI to upload page
+      resetState();
+      
+      // Hide gallery if visible
+      const imageGallery = document.getElementById('imageGallery');
+      if (imageGallery) {
+        imageGallery.style.display = 'none';
+      }
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener('click', function(event) {
+      const errorModal = document.getElementById('errorModal');
+      if (event.target === errorModal) {
+        closeErrorModal();
+      }
+    });
+
+    // Proceed with valid files only
+    function proceedWithValidFiles() {
+      
+      if (window.pendingValidFiles && window.pendingValidFiles.length > 0) {
+        closeErrorModal();
+        
+        // Clear existing images
+        uploadedImages = [];
+        individualSettings = [];
+        hasIndividualFormats = false;
+        updateGallery();
+        
+        // Process only the valid files
+        const validFiles = window.pendingValidFiles;
+        let processedCount = 0;
+        
+        function processNextImage() {
+          if (processedCount >= validFiles.length) {
             // All images processed
             updateGallery();
             // Always select the first image when processing is complete
@@ -522,143 +646,355 @@
             return;
           }
 
-        const file = imageFiles[processedCount];
-        const reader = new FileReader();
+          const file = validFiles[processedCount];
+          
+          // Use FileReader for all files for better compatibility
+          const reader = new FileReader();
+          
+          reader.onload = function(e) {
+            const imageData = {
+              file: file,
+              dataUrl: e.target.result,
+              name: file.name,
+              size: file.size,
+              type: file.type
+            };
+            
+            uploadedImages.push(imageData);
+            
+            // Initialize individual settings for this image
+            const imageIndex = uploadedImages.length - 1;
+            const optimalQuality = getOptimalQuality(file, file.type);
+            individualSettings[imageIndex] = {
+              quality: optimalQuality,
+              format: file.type,
+              optimizedSize: null,
+              reduction: 0
+            };
+            
+            processedCount++;
+            
+            // If this is the first image, select it immediately
+            if (processedCount === 1) {
+              selectImage(0);
+            }
+            
+            // Update progress for multiple images
+            if (validFiles.length > 1) {
+              downloadBtnText.textContent = `Processing ${processedCount}/${validFiles.length} images...`;
+            }
+            
+            // Process next image immediately for better performance
+            processNextImage();
+          };
+          
+          reader.onerror = function() {
+            console.error(`Failed to read file: ${file.name}`);
+            processedCount++;
+            processNextImage();
+          };
+          
+          reader.readAsDataURL(file);
+        }
         
-        reader.onload = function(e) {
-          const imageData = {
-            file: file,
-            dataUrl: e.target.result,
-            name: file.name,
-            size: file.size,
-            type: file.type
-          };
+        // Start processing
+        processNextImage();
+        
+        // Clear the pending files
+        window.pendingValidFiles = null;
+        window.pendingOversizedFiles = null;
+        window.pendingUnsupportedFiles = null;
+      } else {
+        console.error('No pending valid files found');
+        showErrorModal('No valid files to process. Please try uploading again.');
+      }
+    }
+
+          // Process multiple files
+      function processMultipleFiles(files) {
+        // Define supported formats
+        const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/bmp'];
+        
+        // Separate files by type
+        const supportedFiles = files.filter(file => supportedFormats.includes(file.type));
+        const unsupportedFiles = files.filter(file => !supportedFormats.includes(file.type));
+    
+        // Further categorize supported files
+        const oversizedFiles = supportedFiles.filter(file => file.size > MAX_FILE_SIZE);
+        const validFiles = supportedFiles.filter(file => file.size <= MAX_FILE_SIZE);
+      
+        // Only return early if there are no files to process AND no errors to show
+        if (validFiles.length === 0 && unsupportedFiles.length === 0 && oversizedFiles.length === 0) return;
+
+        // Check for any errors (too many files, oversized, unsupported)
+        let hasErrors = false;
+        let errorMessage = '';
+        let filesToProcess = validFiles;
+        
+        // Check file count limit
+        if (supportedFiles.length > MAX_FILES) {
+          hasErrors = true;
+          const limitedValidFiles = validFiles.slice(0, MAX_FILES);
+          const excessFiles = supportedFiles.slice(MAX_FILES);
+          filesToProcess = limitedValidFiles;
           
-          uploadedImages.push(imageData);
+          errorMessage += `Too many files selected (max ${MAX_FILES}).\n\n`;
           
-          // Initialize individual settings for this image
-          const imageIndex = uploadedImages.length - 1;
-          individualSettings[imageIndex] = {
-            quality: DEFAULT_QUALITY, // Default quality
-            format: file.type, // Default to original format
-            optimizedSize: null,
-            reduction: 0
-          };
+          if (excessFiles.length > 0) {
+            const excessFilesList = excessFiles.map((name, index) => `${index + 1}. ${name.name}`).join('\n');
+            errorMessage += `Excess files (will be ignored):\n${excessFilesList}\n\n`;
+          }
+        }
+        
+        // Check for oversized files
+        if (oversizedFiles.length > 0) {
+          hasErrors = true;
+          const oversizedFilesList = oversizedFiles.map((name, index) => `${index + 1}. ${name.name}`).join('\n');
+          errorMessage += `Oversized files (max 50 MB each):\n${oversizedFilesList}\n\n`;
+        }
+        
+        // Check for unsupported files
+        if (unsupportedFiles.length > 0) {
+          hasErrors = true;
+          const unsupportedFilesList = unsupportedFiles.map((name, index) => `${index + 1}. ${name.name} (${name.type})`).join('\n');
+          errorMessage += `Unsupported files:\n${unsupportedFilesList}\n\n`;
+        }
+        
+        // If there are any errors, show unified error modal
+        if (hasErrors) {
+          // Add valid files list
+          if (filesToProcess.length > 0) {
+            const validFilesList = filesToProcess.map((name, index) => 
+              `${index + 1}. ${name.name} (${formatFileSize(name.size)})`
+            ).join('\n');
+            errorMessage += `Valid files:\n${validFilesList}\n\n`;
+          }
           
-          processedCount++;
+          // Store the files for later processing
+          window.pendingValidFiles = filesToProcess;
+          window.pendingOversizedFiles = oversizedFiles;
+          window.pendingUnsupportedFiles = unsupportedFiles;
           
-          // If this is the first image, select it immediately
-          if (processedCount === 1) {
+          // Show error modal with appropriate buttons based on whether there are valid files
+          showErrorModal(errorMessage, filesToProcess.length > 0);
+          return;
+        }
+
+      // Show loading state
+      if (validFiles.length > 1) {
+        downloadBtnText.textContent = `Processing ${validFiles.length} images...`;
+      }
+
+      // Reset individual formats flag for new batch
+      hasIndividualFormats = false;
+      
+      // Process images sequentially to avoid blocking
+      let processedCount = 0;
+      
+      function processNextImage() {
+        if (processedCount >= validFiles.length) {
+          // All images processed
+          updateGallery();
+          // Always select the first image when processing is complete
+          if (uploadedImages.length > 0) {
             selectImage(0);
           }
-          
-          // Update progress for multiple images
-          if (imageFiles.length > 1) {
-            downloadBtnText.textContent = `Processing ${processedCount}/${imageFiles.length} images...`;
-          }
-          
-          // Process next image with a small delay to prevent blocking
-          setTimeout(processNextImage, 10);
-        };
+          return;
+        }
+
+        const file = validFiles[processedCount];
         
-        reader.readAsDataURL(file);
+        // For large files, use createObjectURL instead of FileReader for better performance
+        if (file.size > 10 * 1024 * 1024) { // 10MB threshold
+          const objectUrl = URL.createObjectURL(file);
+          const img = new Image();
+          
+                      // Add timeout for large files
+            const loadTimeout = setTimeout(() => {
+              console.error(`Timeout loading large image: ${file.name}`);
+              URL.revokeObjectURL(objectUrl);
+              processedCount++;
+              processNextImage();
+            }, 15000); // 15 second timeout for large files
+          
+          img.onload = function() {
+            clearTimeout(loadTimeout);
+            const imageData = {
+              file: file,
+              dataUrl: objectUrl, // Use object URL for large files
+              name: file.name,
+              size: file.size,
+              type: file.type
+            };
+            
+            uploadedImages.push(imageData);
+            
+            // Initialize individual settings for this image
+            const imageIndex = uploadedImages.length - 1;
+            const optimalQuality = getOptimalQuality(file, file.type);
+            individualSettings[imageIndex] = {
+              quality: optimalQuality,
+              format: file.type,
+              optimizedSize: null,
+              reduction: 0
+            };
+            
+            processedCount++;
+            
+            // If this is the first image, select it immediately
+            if (processedCount === 1) {
+              selectImage(0);
+            }
+            
+            // Update progress for multiple images
+            if (validFiles.length > 1) {
+              downloadBtnText.textContent = `Processing ${processedCount}/${validFiles.length} images...`;
+            }
+            
+            // Process next image immediately for better performance
+            processNextImage();
+          };
+          
+          img.onerror = function() {
+            clearTimeout(loadTimeout);
+            console.error(`Failed to load image: ${file.name}`);
+            URL.revokeObjectURL(objectUrl);
+            
+            // Show user-friendly error for large files
+            if (file.size > 50 * 1024 * 1024) { // 50MB threshold
+              showErrorModal(`Failed to load large image: ${file.name}\n\nThis file may be too large for your browser to handle. Try:\n• Reducing the image size before uploading\n• Using a different browser\n• Breaking the file into smaller parts`);
+            }
+            
+                          processedCount++;
+              processNextImage();
+          };
+          
+          img.src = objectUrl;
+        } else {
+          // Use FileReader for smaller files
+          const reader = new FileReader();
+          
+          reader.onload = function(e) {
+            const imageData = {
+              file: file,
+              dataUrl: e.target.result,
+              name: file.name,
+              size: file.size,
+              type: file.type
+            };
+            
+            uploadedImages.push(imageData);
+            
+            // Initialize individual settings for this image
+            const imageIndex = uploadedImages.length - 1;
+            const optimalQuality = getOptimalQuality(file, file.type);
+            individualSettings[imageIndex] = {
+              quality: optimalQuality,
+              format: file.type,
+              optimizedSize: null,
+              reduction: 0
+            };
+            
+            processedCount++;
+            
+            // If this is the first image, select it immediately
+            if (processedCount === 1) {
+              selectImage(0);
+            }
+            
+            // Update progress for multiple images
+            if (validFiles.length > 1) {
+              downloadBtnText.textContent = `Processing ${processedCount}/${validFiles.length} images...`;
+            }
+            
+            // Process next image immediately for better performance
+            processNextImage();
+          };
+          
+          reader.readAsDataURL(file);
+        }
       }
       
       // Start processing
       processNextImage();
     }
 
-    // Calculate and update ZIP size estimation
-    function updateZipEstimation() {
-      if (uploadedImages.length <= 1) {
-        zipEstimation.style.display = "none";
-        return;
-      }
 
-      // Calculate original total size
-      const originalTotalSize = uploadedImages.reduce((total, image) => total + image.size, 0);
-      
-      // Estimate optimized sizes based on individual settings
-      let estimatedOptimizedSize = 0;
-      
-      uploadedImages.forEach((imageData, index) => {
-        const settings = individualSettings[index] || { quality: DEFAULT_QUALITY, format: imageData.type };
-        const quality = settings.quality / 100;
-        
-        // Rough estimation based on quality and format
-        let compressionRatio = 1;
-        
-        if (settings.format === 'image/jpeg') {
-          compressionRatio = 0.3 + (0.7 * quality); // JPEG compression
-        } else if (settings.format === 'image/png') {
-          compressionRatio = 0.5 + (0.5 * quality); // PNG compression
-        } else if (settings.format === 'image/webp') {
-          compressionRatio = 0.2 + (0.6 * quality); // WebP compression
-        } else {
-          compressionRatio = 0.8 + (0.2 * quality); // Other formats
-        }
-        
-        estimatedOptimizedSize += imageData.size * compressionRatio;
-      });
-
-      // Add ZIP overhead (roughly 2% of total size)
-      const zipOverhead = estimatedOptimizedSize * 0.02;
-      const finalOptimizedSize = estimatedOptimizedSize + zipOverhead;
-      
-      // Calculate savings
-      const totalSavings = originalTotalSize - finalOptimizedSize;
-      
-      // Update UI
-      originalZipSize.textContent = formatFileSize(originalTotalSize);
-      optimizedZipSize.textContent = formatFileSize(finalOptimizedSize);
-      totalZipSavings.textContent = formatFileSize(totalSavings);
-      
-      // Color coding for savings
-      if (totalSavings > 0) {
-        totalZipSavings.style.color = "var(--success)";
-        optimizedZipSize.style.color = "var(--success)";
-      } else {
-        totalZipSavings.style.color = "var(--danger)";
-        optimizedZipSize.style.color = "var(--danger)";
-      }
-    }
 
     // Debounced gallery update for better performance
     function debouncedUpdateGallery() {
       if (updateGalleryTimeout) {
         clearTimeout(updateGalleryTimeout);
       }
-      updateGalleryTimeout = setTimeout(updateGallery, 50);
+      updateGalleryTimeout = setTimeout(updateGallery, 10);
+    }
+
+    // Memory cleanup function
+    function cleanupMemory() {
+      // Force garbage collection if available
+      if (window.gc) {
+        window.gc();
+      }
+      
+      // Clear any unused object URLs
+      const unusedUrls = [];
+      uploadedImages.forEach((imageData, index) => {
+        if (imageData.dataUrl && imageData.dataUrl.startsWith('blob:') && !document.querySelector(`img[src="${imageData.dataUrl}"]`)) {
+          unusedUrls.push(imageData.dataUrl);
+        }
+      });
+      
+      unusedUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
     }
 
     // Update gallery display
     function updateGallery() {
       if (uploadedImages.length === 0) {
         imageGallery.style.display = "none";
+        applyToAllBtn.style.display = "none";
         return;
       }
 
-      imageGallery.style.display = "block";
+      imageGallery.style.display = "flex";
+      
+      // Show "Apply to All" button when there are multiple images
+      if (uploadedImages.length > 1) {
+        applyToAllBtn.style.display = "inline-flex";
+        // Update button text based on whether individual formats are set
+        if (hasIndividualFormats) {
+          applyToAllBtn.innerHTML = 'Apply All';
+          applyToAllBtn.title = "Override individual formats and apply this format to all images";
+        } else {
+          applyToAllBtn.innerHTML = 'Apply All';
+          applyToAllBtn.title = "Apply this format to all images";
+        }
+      } else {
+        applyToAllBtn.style.display = "none";
+      }
       
       // Use DocumentFragment for better performance
       const fragment = document.createDocumentFragment();
 
       uploadedImages.forEach((imageData, index) => {
-        const settings = individualSettings[index] || { quality: DEFAULT_QUALITY, format: imageData.type };
+        const settings = individualSettings[index] || { quality: 85, format: imageData.type };
         const galleryItem = document.createElement("div");
         galleryItem.className = `gallery-item ${index === selectedImageIndex ? 'selected' : ''}`;
         galleryItem.innerHTML = `
           <div class="gallery-image">
             <img src="${imageData.dataUrl}" alt="${imageData.name}" loading="lazy" />
             <div class="gallery-overlay">
-              <button class="remove-btn" onclick="removeImage(${index})">
+              <button class="download-individual-btn" onclick="downloadIndividualImage(${index})" title="Download this image">
+                <i class="fas fa-download"></i>
+              </button>
+              <button class="remove-btn" onclick="removeImage(${index})" title="Remove this image">
                 <i class="fas fa-times"></i>
               </button>
             </div>
           </div>
           <div class="gallery-info">
             <div class="gallery-name">${imageData.name}</div>
-            <div class="gallery-size">${formatFileSize(imageData.size)}</div>
             <div class="gallery-settings">
               <div class="quality-indicator">Q: ${settings.quality}%</div>
               <div class="format-indicator">${getFormatName(settings.format)}</div>
@@ -684,11 +1020,8 @@
       // Update download button text based on number of images
       if (uploadedImages.length === 1) {
         downloadBtnText.textContent = "Download";
-        zipEstimation.style.display = "none";
       } else {
         downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
-        zipEstimation.style.display = "block";
-        updateZipEstimation();
       }
     }
 
@@ -699,14 +1032,14 @@
         const selectedImageData = uploadedImages[index];
         
         // Load individual settings for this image
-        const settings = individualSettings[index] || { quality: DEFAULT_QUALITY, format: selectedImageData.type };
+        const settings = individualSettings[index] || { quality: 85, format: selectedImageData.type };
         
         // Update UI with individual settings
         qualitySlider.value = settings.quality;
         qualityValue.textContent = settings.quality;
         qualityDisplay.textContent = `${settings.quality}%`;
         
-        // Update format dropdown
+        // Update format dropdown with individual settings
         updateFormatDropdown(selectedImageData.type, settings.format);
         
         processImageFile(selectedImageData.file);
@@ -743,9 +1076,71 @@
     function clearAllImages() {
       uploadedImages = [];
       individualSettings = [];
+      hasIndividualFormats = false;
       resetState();
       imageGallery.style.display = "none";
     }
+
+    // Apply same format to all images
+    function applyFormatToAll() {
+      if (uploadedImages.length === 0) return;
+
+      const selectedFormat = formatSelect.value;
+      
+      // Update all individual settings with optimal quality for the selected format
+      individualSettings.forEach((settings, index) => {
+        settings.format = selectedFormat;
+        // Set optimal quality for the new format
+        const optimalQuality = getOptimalQuality(uploadedImages[index].file, selectedFormat);
+        settings.quality = optimalQuality;
+      });
+
+      // Update current image's quality slider to reflect the new optimal quality
+      if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
+        const currentSettings = individualSettings[selectedImageIndex];
+        qualitySlider.value = currentSettings.quality;
+        qualityValue.textContent = currentSettings.quality;
+        qualityDisplay.textContent = `${currentSettings.quality}%`;
+      }
+
+      // Reset individual formats flag since we're applying to all
+      hasIndividualFormats = false;
+
+      // Update gallery to reflect changes
+      updateGallery();
+
+      // Re-optimize the currently selected image to show updated stats
+      if (originalFile) {
+        setTimeout(() => optimizeImage(), 10);
+      }
+
+      // Show success feedback
+      showApplyToAllFeedback();
+    }
+
+    // Show feedback for apply to all action
+    function showApplyToAllFeedback() {
+      const originalBackground = applyToAllBtn.style.background;
+      
+      applyToAllBtn.innerHTML = 'Applied!';
+      applyToAllBtn.style.background = '#28a745';
+      applyToAllBtn.disabled = true;
+
+      setTimeout(() => {
+        // Restore correct button text based on current state
+        if (hasIndividualFormats) {
+          applyToAllBtn.innerHTML = 'Apply All';
+          applyToAllBtn.title = "Override individual formats and apply this format to all images";
+        } else {
+          applyToAllBtn.innerHTML = 'Apply All';
+          applyToAllBtn.title = "Apply this format to all images";
+        }
+        applyToAllBtn.style.background = originalBackground;
+        applyToAllBtn.disabled = false;
+      }, 2000);
+    }
+
+
 
     // Process image file
     function processImageFile(file) {
@@ -758,8 +1153,7 @@
       originalFormat = file.type;
       originalSize.textContent = formatFileSize(file.size);
 
-      // Set format info
-      updateFormatInfo();
+      // Format dropdown is already populated
 
       const reader = new FileReader();
       reader.onload = function (e) {
@@ -803,11 +1197,9 @@
       optimizedImage = new Image();
 
       // Reset UI elements
-      originalSize.textContent = "0 KB";
-      optimizedSize.textContent = "0 KB";
-      reduction.textContent = "0%";
-      savings.textContent = "0 KB";
-      downloadBtn.disabled = true;
+      if (originalSize) originalSize.textContent = "0 KB";
+      if (optimizedSize) optimizedSize.textContent = "0 KB";
+      if (downloadBtn) downloadBtn.disabled = true;
 
       // Reset internal state
       optimizedDataUrl = null;
@@ -815,10 +1207,14 @@
       sliderPosition = 0.5;
 
       // Clear canvas
+      if (ctx && canvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
 
       // Reset slider position
+      if (comparisonSlider) {
       comparisonSlider.style.left = "50%";
+      }
       
       // Show upload page
       showUploadPage();
@@ -852,39 +1248,144 @@
 
     // Generate optimized image for a given file
     function generateOptimizedImage(file, useFormat, quality) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const img = new Image();
+        
         img.onload = function() {
           const tempCanvas = document.createElement("canvas");
           const tempCtx = tempCanvas.getContext("2d");
 
-          // Calculate new dimensions (reduce size for compression)
-          let newWidth = img.width;
-          let newHeight = img.height;
-
-          if (newWidth > DEFAULT_MAX_DIMENSION || newHeight > DEFAULT_MAX_DIMENSION) {
-            const ratio = Math.min(DEFAULT_MAX_DIMENSION / newWidth, DEFAULT_MAX_DIMENSION / newHeight);
-            newWidth = Math.floor(newWidth * ratio);
-            newHeight = Math.floor(newHeight * ratio);
-          }
+          // Use original dimensions - no size limitation
+          const newWidth = img.width;
+          const newHeight = img.height;
 
           tempCanvas.width = newWidth;
           tempCanvas.height = newHeight;
+          
+          // Use high quality rendering for better results
+          tempCtx.imageSmoothingEnabled = true;
+          tempCtx.imageSmoothingQuality = 'high';
           tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
 
-          const optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
-          const base64String = optimizedDataUrl.split(",")[1];
-          const optimizedBlob = tempCanvas.toBlob((blob) => {
-            resolve({
-              blob: blob,
-              dataUrl: optimizedDataUrl,
-              name: file.name,
-              size: blob.size
-            });
-          }, useFormat, quality);
+          // For large files, use toBlob directly instead of toDataURL for better performance
+          if (file.size > 10 * 1024 * 1024) { // 10MB threshold
+            tempCanvas.toBlob((blob) => {
+              if (blob) {
+                resolve({
+                  blob: blob,
+                  dataUrl: URL.createObjectURL(blob), // Use object URL for large files
+                  name: file.name,
+                  size: blob.size
+                });
+              } else {
+                reject(new Error('Failed to generate optimized image'));
+              }
+            }, useFormat, quality);
+          } else {
+            // For smaller files, use toDataURL for compatibility
+            const optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
+            tempCanvas.toBlob((blob) => {
+              if (blob) {
+                resolve({
+                  blob: blob,
+                  dataUrl: optimizedDataUrl,
+                  name: file.name,
+                  size: blob.size
+                });
+              } else {
+                reject(new Error('Failed to generate optimized image'));
+              }
+            }, useFormat, quality);
+          }
         };
-        img.src = URL.createObjectURL(file);
+        
+        img.onerror = function() {
+          reject(new Error('Failed to load image'));
+        };
+        
+        // Use object URL for better performance with large files
+        if (file.size > 5 * 1024 * 1024) { // 5MB threshold
+          const objectUrl = URL.createObjectURL(file);
+          
+          // Add timeout for large files
+          const loadTimeout = setTimeout(() => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('Timeout loading large image'));
+          }, 30000); // 30 second timeout
+          
+          const originalOnload = img.onload;
+          img.onload = function() {
+            clearTimeout(loadTimeout);
+            URL.revokeObjectURL(objectUrl); // Clean up
+            if (originalOnload) originalOnload.call(this); // Call the original onload
+          };
+          
+          img.onerror = function() {
+            clearTimeout(loadTimeout);
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('Failed to load large image'));
+          };
+          
+          img.src = objectUrl;
+        } else {
+          img.src = URL.createObjectURL(file);
+        }
       });
+    }
+
+    // Download individual image
+    async function downloadIndividualImage(index) {
+      if (index < 0 || index >= uploadedImages.length) return;
+
+      const imageData = uploadedImages[index];
+      const settings = individualSettings[index] || { quality: 85, format: imageData.type };
+      
+      try {
+        // Show loading state
+        const downloadBtn = event.target.closest('.download-individual-btn');
+        if (downloadBtn) {
+          const originalHTML = downloadBtn.innerHTML;
+          downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+          downloadBtn.disabled = true;
+        }
+        
+        // Generate optimized image for this specific image
+        const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
+        
+        // Get base name without extension
+        let baseName = imageData.name;
+        const lastDot = baseName.lastIndexOf(".");
+        if (lastDot > 0) {
+          baseName = baseName.substring(0, lastDot);
+        }
+
+        const fileName = `${baseName}-optimized.${getFormatExtension(settings.format)}`;
+        
+        // Create download link
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(optimized.blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the object URL
+        URL.revokeObjectURL(link.href);
+        
+        // Clean up data URL if it's an object URL
+        if (optimized.dataUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(optimized.dataUrl);
+        }
+      } catch (error) {
+        console.error("Error downloading individual image:", error);
+        showErrorModal("Error downloading image. Please try again.");
+      } finally {
+        // Restore button state
+        if (downloadBtn) {
+          downloadBtn.innerHTML = '<i class="fas fa-download"></i>';
+          downloadBtn.disabled = false;
+        }
+      }
     }
 
     // Download image(s)
@@ -900,64 +1401,99 @@
         if (!optimizedDataUrl) return;
 
         // Use individual settings for single image
-        const settings = individualSettings[0] || { quality: DEFAULT_QUALITY, format: originalFile.type };
+        const settings = individualSettings[0] || { quality: 85, format: originalFile.type };
         const singleFormatExt = getFormatExtension(settings.format);
 
-        let baseName = originalFile.name;
-        const lastDot = baseName.lastIndexOf(".");
-        if (lastDot > 0) {
-          baseName = baseName.substring(0, lastDot);
-        }
+      let baseName = originalFile.name;
+      const lastDot = baseName.lastIndexOf(".");
+      if (lastDot > 0) {
+        baseName = baseName.substring(0, lastDot);
+      }
 
-        const link = document.createElement("a");
-        link.href = optimizedDataUrl;
+      const link = document.createElement("a");
+      link.href = optimizedDataUrl;
         link.download = `${baseName}-optimized.${singleFormatExt}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       } else {
         // Multiple images - create zip
         downloadBtn.disabled = true;
         downloadBtnText.textContent = "Creating ZIP...";
 
         try {
+          // Check if JSZip is available
+          if (typeof JSZip === 'undefined') {
+            throw new Error('JSZip library not loaded');
+          }
+          
           const zip = new JSZip();
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
           let zipName = `squeezed-${timestamp}`;
+          
+          let processedCount = 0;
 
           // Generate optimized images for all uploaded images with individual settings
-          const optimizedImages = [];
           for (let i = 0; i < uploadedImages.length; i++) {
-            const imageData = uploadedImages[i];
-            const settings = individualSettings[i] || { quality: DEFAULT_QUALITY, format: imageData.type };
-            const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
+            // Update progress
+            downloadBtnText.textContent = `Processing ${i + 1}/${uploadedImages.length}...`;
             
-            // Get base name without extension
-            let baseName = imageData.name;
-            const lastDot = baseName.lastIndexOf(".");
-            if (lastDot > 0) {
-              baseName = baseName.substring(0, lastDot);
-            }
+            const imageData = uploadedImages[i];
+            const settings = individualSettings[i] || { quality: 85, format: imageData.type };
+            
+            try {
+              const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
+              
+              // Get base name without extension
+              let baseName = imageData.name;
+              const lastDot = baseName.lastIndexOf(".");
+              if (lastDot > 0) {
+                baseName = baseName.substring(0, lastDot);
+              }
 
-            const fileName = `${baseName}-optimized.${getFormatExtension(settings.format)}`;
-            zip.file(fileName, optimized.blob);
-            optimizedImages.push(optimized);
+              const fileName = `${baseName}-optimized.${getFormatExtension(settings.format)}`;
+              
+              zip.file(fileName, optimized.blob);
+              processedCount++;
+              
+              // Clean up blob URL if it was created
+              if (optimized.dataUrl && optimized.dataUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(optimized.dataUrl);
+              }
+            } catch (error) {
+              console.error(`Error processing ${imageData.name}:`, error);
+              // Continue with other files
+            }
           }
 
+          if (processedCount === 0) {
+            throw new Error('No images were successfully processed');
+          }
+          
           // Generate and download zip
+          downloadBtnText.textContent = "Generating ZIP...";
           const zipBlob = await zip.generateAsync({ type: "blob" });
+          
+          if (!zipBlob || zipBlob.size === 0) {
+            throw new Error('Generated ZIP file is empty or invalid');
+          }
+          
           const link = document.createElement("a");
           link.href = URL.createObjectURL(zipBlob);
           link.download = `${zipName}.zip`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+          
+          // Clean up zip blob URL
+          URL.revokeObjectURL(link.href);
 
           // Update download button text
           downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
         } catch (error) {
           console.error("Error creating ZIP:", error);
           downloadBtnText.textContent = "Download";
+          showErrorModal(`Error creating ZIP file: ${error.message}. Please try again.`);
         } finally {
           downloadBtn.disabled = false;
         }
@@ -989,6 +1525,9 @@
       // Clear all button
       clearAllBtn.addEventListener("click", clearAllImages);
 
+      // Apply to all button
+      applyToAllBtn.addEventListener("click", applyFormatToAll);
+
       // Settings changes trigger auto-optimization and save individual settings
       qualitySlider.addEventListener("input", function () {
         updateQualityDisplay();
@@ -996,30 +1535,38 @@
         // Save individual settings for current image
         if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
           individualSettings[selectedImageIndex].quality = parseInt(qualitySlider.value);
-          // Update ZIP estimation when quality changes
-          if (uploadedImages.length > 1) {
-            updateZipEstimation();
-          }
         }
         
-        if (originalFile) optimizeImage();
+        if (originalFile) {
+          // Force re-optimization to update size display
+          setTimeout(() => optimizeImage(), 10);
+        }
       });
 
       formatSelect.addEventListener("change", function () {
-        updateFormatInfo();
-        
         // Save individual settings for current image
         if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
-          individualSettings[selectedImageIndex].format = formatSelect.value;
+          const newFormat = formatSelect.value;
+          individualSettings[selectedImageIndex].format = newFormat;
+          
+          // Update quality to optimal setting for the new format
+          const optimalQuality = getOptimalQuality(originalFile, newFormat);
+          individualSettings[selectedImageIndex].quality = optimalQuality;
+          
+          // Update UI to reflect the new optimal quality
+          qualitySlider.value = optimalQuality;
+          qualityValue.textContent = optimalQuality;
+          qualityDisplay.textContent = `${optimalQuality}%`;
+          
+          hasIndividualFormats = true; // Mark that individual formats have been set
           // Update gallery to reflect the format change
           debouncedUpdateGallery();
-          // Update ZIP estimation when format changes
-          if (uploadedImages.length > 1) {
-            updateZipEstimation();
-          }
         }
         
-        if (originalFile) optimizeImage();
+        if (originalFile) {
+          // Force re-optimization with new format and optimal quality
+          setTimeout(() => optimizeImage(), 10);
+        }
       });
 
       // Download button
@@ -1089,15 +1636,63 @@
       });
     }
 
+    // Disable browser resize functionality
+    function disableBrowserResize() {
+      // Prevent window resize
+      window.addEventListener('resize', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      });
+      
+      // Prevent window resize via keyboard shortcuts
+      document.addEventListener('keydown', function(e) {
+        // Prevent Ctrl/Cmd + Plus/Minus for zoom
+        if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=')) {
+          e.preventDefault();
+          return false;
+        }
+        
+        // Prevent F11 (fullscreen toggle)
+        if (e.key === 'F11') {
+          e.preventDefault();
+          return false;
+        }
+      });
+      
+      // Prevent context menu (right-click) resize options
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+      });
+      
+      // Set fixed viewport
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+      document.head.appendChild(meta);
+      
+      // Disable text selection to prevent accidental resizing
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      document.body.style.mozUserSelect = 'none';
+      document.body.style.msUserSelect = 'none';
+    }
+
     // Initialize the app
     function init() {
+      // Disable browser resize
+      disableBrowserResize();
+      
       resizeCanvas();
       initEventListeners();
       updateQualityDisplay();
-      updateFormatInfo();
 
       // Handle window resize
       window.addEventListener("resize", resizeCanvas);
+      
+      // Periodic memory cleanup for large files
+      setInterval(cleanupMemory, 30000); // Clean up every 30 seconds
     }
 
     // Start the app
