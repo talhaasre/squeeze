@@ -260,6 +260,7 @@ input[type="range"] {
     background: #dee2e6;
     border-radius: 3px;
     outline: none;
+    appearance: none;
     -webkit-appearance: none;
     transition: all 0.3s ease;
 }
