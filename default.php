@@ -1976,17 +1976,46 @@
         }
       });
 
+      // Touch events for comparison slider
+      comparisonSlider.addEventListener("touchstart", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDraggingSlider = true;
+        document.body.style.userSelect = "none";
+        // Add visual feedback for mobile
+        comparisonSlider.style.opacity = "0.8";
+      });
+
+      comparisonSlider.addEventListener("touchend", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDraggingSlider = false;
+        document.body.style.userSelect = "";
+        // Restore visual feedback
+        comparisonSlider.style.opacity = "1";
+      });
+
+      comparisonSlider.addEventListener("touchcancel", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDraggingSlider = false;
+        document.body.style.userSelect = "";
+        // Restore visual feedback
+        comparisonSlider.style.opacity = "1";
+      });
+
       // Touch move for comparison slider
       document.addEventListener("touchmove", function (e) {
         if (isDraggingSlider && originalFile) {
           e.preventDefault();
+          e.stopPropagation();
           const rect = canvas.getBoundingClientRect();
           const touch = e.touches[0];
           const x = touch.clientX - rect.left;
           sliderPosition = Math.max(0, Math.min(1, x / rect.width));
           drawImages();
         }
-      });
+      }, { passive: false });
 
       // Zoom controls
       zoomInBtn.addEventListener("click", () => handleZoom(1));
@@ -2205,6 +2234,17 @@
 
       // Periodic memory cleanup for large files
       setInterval(cleanupMemory, 30000); // Clean up every 30 seconds
+
+      // Ensure comparison slider is properly initialized for mobile
+      if (isMobileDevice()) {
+        // Add a small delay to ensure DOM is ready
+        setTimeout(() => {
+          if (comparisonSlider) {
+            comparisonSlider.style.touchAction = 'none';
+            comparisonSlider.style.webkitTapHighlightColor = 'transparent';
+          }
+        }, 100);
+      }
     }
 
     // Start the app

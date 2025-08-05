@@ -126,11 +126,13 @@ body {
     transform: translateX(-50%);
     /* Mobile touch improvements */
     -webkit-tap-highlight-color: transparent;
-    touch-action: pan-x;
+    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    /* Ensure slider is always interactive */
+    pointer-events: auto;
 }
 
 .comparison-slider::before {
@@ -145,7 +147,11 @@ body {
     transform: translate(-50%, -50%);
     /* Mobile touch improvements */
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+    touch-action: none;
+    /* Ensure the touch target is interactive */
+    pointer-events: auto;
+    /* Add transition for smooth visual feedback */
+    transition: all 0.2s ease;
 }
 
 .comparison-slider::after {
@@ -169,19 +175,26 @@ body {
 @media (max-width: 768px) {
     .comparison-slider {
         width: 6px;
-        /* Thicker for mobile touch */
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+        pointer-events: auto;
     }
 
     .comparison-slider::before {
-        width: 56px;
+        width: 50px;
+        height: 50px;
         /* Larger touch target */
-        height: 56px;
+        /* Ensure the touch target is interactive */
+        pointer-events: auto;
+        touch-action: none;
     }
 
     .comparison-slider::after {
         width: 32px;
         /* Larger image for mobile */
         height: 32px;
+        /* Keep pointer events disabled for the image */
+        pointer-events: none;
     }
 }
 
@@ -721,8 +734,13 @@ select:focus {
     }
 
     .app-title .app-title-text {
-        font-size: 1.5rem;
+        font-size: 2rem;
         justify-content: center;
+        margin: 0;
+    }
+
+    #tagline {
+        margin: 10px 0 5px;
     }
 
     /* Adjust upload section */
@@ -738,7 +756,10 @@ select:focus {
     /* Adjust zoom controls */
     .zoom-controls {
         position: absolute;
-        bottom: 45vh;
+        /* bottom: 45vh; */
+        top: 50vh;
+        height: fit-content;
+        z-index: 1001;
     }
 
     /* Adjust stats grid */
@@ -1473,6 +1494,13 @@ select:focus {
         user-select: none;
     }
 
+    /* Ensure comparison slider is always visible and interactive */
+    .comparison-slider {
+        opacity: 1 !important;
+        visibility: visible !important;
+        z-index: 1000 !important;
+    }
+
     /* Allow text selection in specific areas */
     .gallery-name,
     .stat-label,
@@ -1563,18 +1591,27 @@ select:focus {
 /* Mobile device specific improvements */
 .mobile-device .comparison-slider {
     /* Larger touch target for mobile */
-    width: 5px;
+    width: 8px;
+    /* Ensure proper touch handling */
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    pointer-events: auto;
 }
 
 .mobile-device .comparison-slider::before {
-    width: 40px;
-    height: 40px;
+    width: 60px;
+    height: 60px;
+    /* Ensure the touch target is interactive */
+    pointer-events: auto;
+    touch-action: none;
 }
 
 .mobile-device .comparison-slider::after {
-    width: 26px;
+    width: 36px;
     /* Larger image for mobile devices */
-    height: 26px;
+    height: 36px;
+    /* Keep pointer events disabled for the image */
+    pointer-events: none;
 }
 
 /* Improve touch feedback */
