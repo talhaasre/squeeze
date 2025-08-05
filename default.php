@@ -490,17 +490,17 @@
       // Draw image with new dimensions
       tempCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
 
-      // Special handling for different formats
+      // Try optimization with selected format first
       let optimizedDataUrl;
+      let finalFormat = useFormat;
       
       if (useFormat === 'image/png') {
         // For PNG, use quality 1.0 to preserve transparency and quality
-        // PNG compression is lossless, so we rely on size reduction for optimization
         optimizedDataUrl = tempCanvas.toDataURL(useFormat, 1.0);
       } else if (useFormat === 'image/bmp') {
         // For BMP, convert to PNG for better compression
-        // BMP is uncompressed, so any conversion will likely reduce size
         optimizedDataUrl = tempCanvas.toDataURL('image/png', 1.0);
+        finalFormat = 'image/png';
       } else {
         // For JPEG and WebP, use the quality setting
         optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
@@ -516,16 +516,17 @@
         const base64String = optimizedDataUrl.split(",")[1];
         const optimizedSizeBytes = Math.floor((base64String.length * 3) / 4);
 
-        // Always show optimization results for PNG and BMP
-        // For other formats, only show if optimization was successful
-        if (useFormat === 'image/png' || useFormat === 'image/bmp' || optimizedSizeBytes <= originalSizeBytes) {
-          // Optimization was successful or we want to show PNG/BMP results
+        // Check if optimization achieved at least 10% reduction
+        const minReductionRequired = originalSizeBytes * 0.1; // 10% reduction required
+        const actualReduction = originalSizeBytes - optimizedSizeBytes;
+        
+        if (actualReduction >= minReductionRequired) {
+          // Optimization was successful - at least 10% reduction achieved
           originalSize.textContent = formatFileSize(originalSizeBytes);
           optimizedSize.textContent = formatFileSize(optimizedSizeBytes);
 
-          const savingsBytes = originalSizeBytes - optimizedSizeBytes;
           const reductionPercent = (
-            (savingsBytes / originalSizeBytes) *
+            (actualReduction / originalSizeBytes) *
             100
           ).toFixed(1);
           
@@ -533,21 +534,116 @@
           if (individualSettings[selectedImageIndex]) {
             individualSettings[selectedImageIndex].optimizedSize = optimizedSizeBytes;
             individualSettings[selectedImageIndex].reduction = parseFloat(reductionPercent);
+            individualSettings[selectedImageIndex].finalFormat = finalFormat;
           }
         } else {
-          // For other formats, if optimization increased size, use original image
-          optimizedImage.src = URL.createObjectURL(originalFile);
-          optimizedDataUrl = URL.createObjectURL(originalFile);
+          // Optimization didn't achieve 10% reduction, try alternative strategies
           
-          // Update stats to show no optimization
-          originalSize.textContent = formatFileSize(originalSizeBytes);
-          optimizedSize.textContent = formatFileSize(originalSizeBytes);
+          // Strategy 1: Try JPEG with aggressive compression
+          const jpegCanvas = document.createElement("canvas");
+          const jpegCtx = jpegCanvas.getContext("2d");
+          jpegCanvas.width = newWidth;
+          jpegCanvas.height = newHeight;
+          jpegCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
           
-          // Update individual settings to prevent future optimization attempts
-          if (individualSettings[selectedImageIndex]) {
-            individualSettings[selectedImageIndex].quality = 100;
-            individualSettings[selectedImageIndex].optimizedSize = originalSizeBytes;
-            individualSettings[selectedImageIndex].reduction = 0;
+          const jpegDataUrl = jpegCanvas.toDataURL('image/jpeg', 0.6); // 60% quality
+          const jpegBase64String = jpegDataUrl.split(",")[1];
+          const jpegSizeBytes = Math.floor((jpegBase64String.length * 3) / 4);
+          const jpegReduction = originalSizeBytes - jpegSizeBytes;
+          
+          if (jpegReduction >= minReductionRequired) {
+            // JPEG optimization worked
+            optimizedImage.src = jpegDataUrl;
+            optimizedDataUrl = jpegDataUrl;
+            originalSize.textContent = formatFileSize(originalSizeBytes);
+            optimizedSize.textContent = formatFileSize(jpegSizeBytes);
+            
+            if (individualSettings[selectedImageIndex]) {
+              individualSettings[selectedImageIndex].optimizedSize = jpegSizeBytes;
+              individualSettings[selectedImageIndex].reduction = parseFloat(((jpegReduction / originalSizeBytes) * 100).toFixed(1));
+              individualSettings[selectedImageIndex].finalFormat = 'image/jpeg';
+            }
+          } else {
+            // Strategy 2: Try WebP if supported
+            try {
+              const webpCanvas = document.createElement("canvas");
+              const webpCtx = webpCanvas.getContext("2d");
+              webpCanvas.width = newWidth;
+              webpCanvas.height = newHeight;
+              webpCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+              
+              const webpDataUrl = webpCanvas.toDataURL('image/webp', 0.7); // 70% quality
+              const webpBase64String = webpDataUrl.split(",")[1];
+              const webpSizeBytes = Math.floor((webpBase64String.length * 3) / 4);
+              const webpReduction = originalSizeBytes - webpSizeBytes;
+              
+              if (webpReduction >= minReductionRequired) {
+                // WebP optimization worked
+                optimizedImage.src = webpDataUrl;
+                optimizedDataUrl = webpDataUrl;
+                originalSize.textContent = formatFileSize(originalSizeBytes);
+                optimizedSize.textContent = formatFileSize(webpSizeBytes);
+                
+                if (individualSettings[selectedImageIndex]) {
+                  individualSettings[selectedImageIndex].optimizedSize = webpSizeBytes;
+                  individualSettings[selectedImageIndex].reduction = parseFloat(((webpReduction / originalSizeBytes) * 100).toFixed(1));
+                  individualSettings[selectedImageIndex].finalFormat = 'image/webp';
+                }
+              } else {
+                // Strategy 3: Use original format with aggressive compression
+                const originalCanvas = document.createElement("canvas");
+                const originalCtx = originalCanvas.getContext("2d");
+                originalCanvas.width = newWidth;
+                originalCanvas.height = newHeight;
+                originalCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+                
+                // Use original format with lower quality
+                const originalFormatDataUrl = originalCanvas.toDataURL(originalFile.type, 0.5); // 50% quality
+                const originalFormatBase64String = originalFormatDataUrl.split(",")[1];
+                const originalFormatSizeBytes = Math.floor((originalFormatBase64String.length * 3) / 4);
+                const originalFormatReduction = originalSizeBytes - originalFormatSizeBytes;
+                
+                if (originalFormatReduction >= minReductionRequired) {
+                  // Original format with compression worked
+                  optimizedImage.src = originalFormatDataUrl;
+                  optimizedDataUrl = originalFormatDataUrl;
+                  originalSize.textContent = formatFileSize(originalSizeBytes);
+                  optimizedSize.textContent = formatFileSize(originalFormatSizeBytes);
+                  
+                  if (individualSettings[selectedImageIndex]) {
+                    individualSettings[selectedImageIndex].optimizedSize = originalFormatSizeBytes;
+                    individualSettings[selectedImageIndex].reduction = parseFloat(((originalFormatReduction / originalSizeBytes) * 100).toFixed(1));
+                    individualSettings[selectedImageIndex].finalFormat = originalFile.type;
+                  }
+                } else {
+                  // No optimization possible, use original
+                  optimizedImage.src = URL.createObjectURL(originalFile);
+                  optimizedDataUrl = URL.createObjectURL(originalFile);
+                  
+                  originalSize.textContent = formatFileSize(originalSizeBytes);
+                  optimizedSize.textContent = formatFileSize(originalSizeBytes);
+                  
+                  if (individualSettings[selectedImageIndex]) {
+                    individualSettings[selectedImageIndex].optimizedSize = originalSizeBytes;
+                    individualSettings[selectedImageIndex].reduction = 0;
+                    individualSettings[selectedImageIndex].finalFormat = originalFile.type;
+                  }
+                }
+              }
+            } catch (e) {
+              // WebP not supported, fall back to original format
+              optimizedImage.src = URL.createObjectURL(originalFile);
+              optimizedDataUrl = URL.createObjectURL(originalFile);
+              
+              originalSize.textContent = formatFileSize(originalSizeBytes);
+              optimizedSize.textContent = formatFileSize(originalSizeBytes);
+              
+              if (individualSettings[selectedImageIndex]) {
+                individualSettings[selectedImageIndex].optimizedSize = originalSizeBytes;
+                individualSettings[selectedImageIndex].reduction = 0;
+                individualSettings[selectedImageIndex].finalFormat = originalFile.type;
+              }
+            }
           }
         }
 
@@ -1353,8 +1449,9 @@
           tempCtx.imageSmoothingQuality = 'high';
           tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
 
-          // Special handling for different formats
+          // Try optimization with selected format first
           let optimizedDataUrl;
+          let finalFormat = useFormat;
           
           if (useFormat === 'image/png') {
             // For PNG, use quality 1.0 to preserve transparency and quality
@@ -1362,27 +1459,21 @@
           } else if (useFormat === 'image/bmp') {
             // For BMP, convert to PNG for better compression
             optimizedDataUrl = tempCanvas.toDataURL('image/png', 1.0);
+            finalFormat = 'image/png';
           } else {
             // For JPEG and WebP, use the quality setting
             optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
           }
 
-          // For large files, use toBlob directly instead of toDataURL for better performance
-          if (file.size > 10 * 1024 * 1024) { // 10MB threshold
-            tempCanvas.toBlob((blob) => {
-              if (blob) {
-                resolve({
-                  blob: blob,
-                  dataUrl: URL.createObjectURL(blob), // Use object URL for large files
-                  name: file.name,
-                  size: blob.size
-                });
-              } else {
-                reject(new Error('Failed to generate optimized image'));
-              }
-            }, useFormat === 'image/bmp' ? 'image/png' : useFormat, useFormat === 'image/png' ? 1.0 : quality);
-          } else {
-            // For smaller files, use toDataURL for compatibility
+          // Calculate if optimization achieved at least 10% reduction
+          const originalSizeBytes = file.size;
+          const base64String = optimizedDataUrl.split(",")[1];
+          const optimizedSizeBytes = Math.floor((base64String.length * 3) / 4);
+          const minReductionRequired = originalSizeBytes * 0.1; // 10% reduction required
+          const actualReduction = originalSizeBytes - optimizedSizeBytes;
+
+          if (actualReduction >= minReductionRequired) {
+            // Optimization was successful - at least 10% reduction achieved
             tempCanvas.toBlob((blob) => {
               if (blob) {
                 resolve({
@@ -1394,7 +1485,112 @@
               } else {
                 reject(new Error('Failed to generate optimized image'));
               }
-            }, useFormat === 'image/bmp' ? 'image/png' : useFormat, useFormat === 'image/png' ? 1.0 : quality);
+            }, finalFormat, finalFormat === 'image/png' ? 1.0 : quality);
+          } else {
+            // Optimization didn't achieve 10% reduction, try alternative strategies
+            
+            // Strategy 1: Try JPEG with aggressive compression
+            const jpegCanvas = document.createElement("canvas");
+            const jpegCtx = jpegCanvas.getContext("2d");
+            jpegCanvas.width = newWidth;
+            jpegCanvas.height = newHeight;
+            jpegCtx.drawImage(img, 0, 0, newWidth, newHeight);
+            
+            const jpegDataUrl = jpegCanvas.toDataURL('image/jpeg', 0.6); // 60% quality
+            const jpegBase64String = jpegDataUrl.split(",")[1];
+            const jpegSizeBytes = Math.floor((jpegBase64String.length * 3) / 4);
+            const jpegReduction = originalSizeBytes - jpegSizeBytes;
+            
+            if (jpegReduction >= minReductionRequired) {
+              // JPEG optimization worked
+              jpegCanvas.toBlob((blob) => {
+                if (blob) {
+                  resolve({
+                    blob: blob,
+                    dataUrl: jpegDataUrl,
+                    name: file.name,
+                    size: blob.size
+                  });
+                } else {
+                  reject(new Error('Failed to generate optimized image'));
+                }
+              }, 'image/jpeg', 0.6);
+            } else {
+              // Strategy 2: Try WebP if supported
+              try {
+                const webpCanvas = document.createElement("canvas");
+                const webpCtx = webpCanvas.getContext("2d");
+                webpCanvas.width = newWidth;
+                webpCanvas.height = newHeight;
+                webpCtx.drawImage(img, 0, 0, newWidth, newHeight);
+                
+                const webpDataUrl = webpCanvas.toDataURL('image/webp', 0.7); // 70% quality
+                const webpBase64String = webpDataUrl.split(",")[1];
+                const webpSizeBytes = Math.floor((webpBase64String.length * 3) / 4);
+                const webpReduction = originalSizeBytes - webpSizeBytes;
+                
+                if (webpReduction >= minReductionRequired) {
+                  // WebP optimization worked
+                  webpCanvas.toBlob((blob) => {
+                    if (blob) {
+                      resolve({
+                        blob: blob,
+                        dataUrl: webpDataUrl,
+                        name: file.name,
+                        size: blob.size
+                      });
+                    } else {
+                      reject(new Error('Failed to generate optimized image'));
+                    }
+                  }, 'image/webp', 0.7);
+                } else {
+                  // Strategy 3: Use original format with aggressive compression
+                  const originalCanvas = document.createElement("canvas");
+                  const originalCtx = originalCanvas.getContext("2d");
+                  originalCanvas.width = newWidth;
+                  originalCanvas.height = newHeight;
+                  originalCtx.drawImage(img, 0, 0, newWidth, newHeight);
+                  
+                  // Use original format with lower quality
+                  const originalFormatDataUrl = originalCanvas.toDataURL(file.type, 0.5); // 50% quality
+                  const originalFormatBase64String = originalFormatDataUrl.split(",")[1];
+                  const originalFormatSizeBytes = Math.floor((originalFormatBase64String.length * 3) / 4);
+                  const originalFormatReduction = originalSizeBytes - originalFormatSizeBytes;
+                  
+                  if (originalFormatReduction >= minReductionRequired) {
+                    // Original format with compression worked
+                    originalCanvas.toBlob((blob) => {
+                      if (blob) {
+                        resolve({
+                          blob: blob,
+                          dataUrl: originalFormatDataUrl,
+                          name: file.name,
+                          size: blob.size
+                        });
+                      } else {
+                        reject(new Error('Failed to generate optimized image'));
+                      }
+                    }, file.type, 0.5);
+                  } else {
+                    // No optimization possible, use original
+                    resolve({
+                      blob: file,
+                      dataUrl: URL.createObjectURL(file),
+                      name: file.name,
+                      size: file.size
+                    });
+                  }
+                }
+              } catch (e) {
+                // WebP not supported, fall back to original
+                resolve({
+                  blob: file,
+                  dataUrl: URL.createObjectURL(file),
+                  name: file.name,
+                  size: file.size
+                });
+              }
+            }
           }
         };
         
@@ -1458,7 +1654,9 @@
           baseName = baseName.substring(0, lastDot);
         }
 
-        const fileName = `${baseName}-optimized.${getFormatExtension(settings.format)}`;
+        // Use the final format that was actually used for optimization
+        const finalFormat = settings.finalFormat || settings.format;
+        const fileName = `${baseName}-optimized.${getFormatExtension(finalFormat)}`;
         
         // Create download link
         const link = document.createElement("a");
@@ -1501,7 +1699,8 @@
 
         // Use individual settings for single image
         const settings = individualSettings[0] || { quality: 85, format: originalFile.type };
-        const singleFormatExt = getFormatExtension(settings.format);
+        const finalFormat = settings.finalFormat || settings.format;
+        const singleFormatExt = getFormatExtension(finalFormat);
 
       let baseName = originalFile.name;
       const lastDot = baseName.lastIndexOf(".");
@@ -1550,7 +1749,9 @@
                 baseName = baseName.substring(0, lastDot);
               }
 
-              const fileName = `${baseName}-optimized.${getFormatExtension(settings.format)}`;
+              // Use the final format that was actually used for optimization
+              const finalFormat = settings.finalFormat || settings.format;
+              const fileName = `${baseName}-optimized.${getFormatExtension(finalFormat)}`;
               
               zip.file(fileName, optimized.blob);
               processedCount++;
