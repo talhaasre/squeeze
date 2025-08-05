@@ -513,8 +513,8 @@ select:focus {
     z-index: 100;
 }
 
-.app-title h1 {
-    font-size: 2rem;
+.app-title .app-title-text {
+    font-size: 3rem;
     margin-bottom: 5px;
     background: linear-gradient(to right, #fff, #ffdd00);
     -webkit-background-clip: text;
@@ -523,6 +523,7 @@ select:focus {
     display: flex;
     align-items: center;
     gap: 10px;
+    font-weight: 600;
 }
 
 .app-title p {
@@ -719,7 +720,7 @@ select:focus {
         background: rgba(0, 0, 0, 0.3);
     }
 
-    .app-title h1 {
+    .app-title .app-title-text {
         font-size: 1.5rem;
         justify-content: center;
     }
