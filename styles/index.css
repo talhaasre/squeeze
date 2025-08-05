@@ -86,6 +86,26 @@ body {
     height: 100%;
     cursor: move;
     transform-origin: 0 0;
+    /* Mobile touch improvements */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Mobile-specific canvas improvements */
+@media (max-width: 768px) {
+    #comparisonCanvas {
+        cursor: default; /* Remove cursor on mobile */
+    }
+    
+    .canvas-container {
+        /* Ensure proper touch handling */
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
 }
 
 .comparison-slider {
@@ -99,6 +119,13 @@ body {
     z-index: 10;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
     transform: translateX(-50%);
+    /* Mobile touch improvements */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-x;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .comparison-slider::before {
@@ -111,6 +138,9 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    /* Mobile touch improvements */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .comparison-slider::after {
@@ -122,6 +152,25 @@ body {
     color: white;
     font-size: 22px;
     font-weight: bold;
+    /* Mobile touch improvements */
+    pointer-events: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile-specific comparison slider improvements */
+@media (max-width: 768px) {
+    .comparison-slider {
+        width: 6px; /* Thicker for mobile touch */
+    }
+    
+    .comparison-slider::before {
+        width: 56px; /* Larger touch target */
+        height: 56px;
+    }
+    
+    .comparison-slider::after {
+        font-size: 24px; /* Larger arrow */
+    }
 }
 
 .upload-section {
@@ -263,6 +312,9 @@ input[type="range"] {
     appearance: none;
     -webkit-appearance: none;
     transition: all 0.3s ease;
+    /* iOS Safari improvements */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-x;
 }
 
 input[type="range"]:hover {
@@ -279,9 +331,29 @@ input[type="range"]::-webkit-slider-thumb {
     box-shadow: 0 2px 8px rgba(67, 97, 238, 0.4);
     transition: all 0.2s ease;
     border: 3px solid white;
+    /* iOS Safari improvements */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    background: var(--secondary);
+}
+
+/* Firefox slider thumb */
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--primary);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(67, 97, 238, 0.4);
+    transition: all 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
     transform: scale(1.1);
     background: var(--secondary);
 }
@@ -1336,4 +1408,152 @@ select:focus {
         padding: 10px 12px;
         font-size: 0.9rem;
     }
+}
+
+/* Mobile-specific slider improvements */
+@media (max-width: 768px) {
+    input[type="range"] {
+        height: 8px; /* Larger touch target */
+        margin: 10px 0;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+        width: 24px; /* Larger thumb for mobile */
+        height: 24px;
+        border: 2px solid white;
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border: 2px solid white;
+    }
+    
+    .slider-container {
+        gap: 20px; /* More space for touch */
+    }
+    
+    .value-display {
+        width: 70px; /* Larger display for mobile */
+        padding: 10px;
+        font-size: 1rem;
+    }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+    /* Prevent unwanted touch behaviors */
+    * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    
+    /* Allow text selection in specific areas */
+    .gallery-name,
+    .stat-label,
+    .error-modal-body {
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        user-select: text;
+    }
+    
+    /* Improve touch targets */
+    .btn,
+    .browse-btn,
+    .zoom-btn {
+        min-height: 44px; /* iOS recommended minimum touch target */
+        min-width: 44px;
+    }
+    
+    /* Improve slider touch experience */
+    .slider-container {
+        padding: 10px 0;
+    }
+    
+    /* Better mobile layout */
+    .control-panel {
+        padding: 20px 15px;
+    }
+    
+    .panel-section {
+        margin-bottom: 20px;
+    }
+    
+    /* Improve format controls on mobile */
+    .format-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .format-controls select,
+    .format-controls .btn {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+    }
+}
+
+/* iOS Safari specific improvements */
+.ios-safari input[type="range"] {
+    -webkit-appearance: none;
+    background: transparent;
+}
+
+.ios-safari input[type="range"]::-webkit-slider-track {
+    -webkit-appearance: none;
+    background: #dee2e6;
+    height: 8px;
+    border-radius: 4px;
+}
+
+.ios-safari input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 24px;
+    width: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(67, 97, 238, 0.4);
+    margin-top: -8px;
+}
+
+/* Prevent zoom on input focus in iOS */
+.ios-safari input,
+.ios-safari select,
+.ios-safari textarea {
+    font-size: 16px !important;
+}
+
+/* Mobile device specific improvements */
+.mobile-device .comparison-slider {
+    /* Larger touch target for mobile */
+    width: 8px;
+}
+
+.mobile-device .comparison-slider::before {
+    width: 60px;
+    height: 60px;
+}
+
+.mobile-device .comparison-slider::after {
+    font-size: 26px;
+}
+
+/* Improve touch feedback */
+.mobile-device .btn:active,
+.mobile-device .browse-btn:active,
+.mobile-device .zoom-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+}
+
+/* Better mobile scrolling */
+.mobile-device .gallery-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
 }

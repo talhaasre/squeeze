@@ -19,7 +19,7 @@
     })(window,document,'script','dataLayer','GTM-TCWTHLTF');</script>
   <!-- End Google Tag Manager -->
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>SQUEEZE</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="styles/index.css" />
@@ -118,7 +118,7 @@
         </div>
 
         <div class="setting-group quality-group">
-          <label for="qualitySlider"><i class="fas fa-bullseye"></i> Quality:
+          <label for="qualitySlider"><i class="fas fa-bullseye"></i> <span id="qualityLabel">Quality</span>:
             <span id="qualityValue">60</span>%</label>
           <div class="slider-container">
             <input type="range" id="qualitySlider" min="40" max="100" value="60" />
@@ -295,11 +295,40 @@
       dragNotice.style.display = "block";
     }
 
+    // Update quality label based on format
+    function updateQualityLabel() {
+      const qualityLabel = document.getElementById('qualityLabel');
+      const settings = individualSettings[selectedImageIndex] || { quality: 85, format: originalFile?.type };
+      const useFormat = settings.format;
+      
+      if (useFormat === 'image/png') {
+        qualityLabel.textContent = 'Size Reduction';
+      } else if (useFormat === 'image/bmp') {
+        qualityLabel.textContent = 'Size Reduction';
+      } else {
+        qualityLabel.textContent = 'Quality';
+      }
+    }
+
     // Update quality display
     function updateQualityDisplay() {
       const value = qualitySlider.value;
+      const settings = individualSettings[selectedImageIndex] || { quality: 85, format: originalFile?.type };
+      const useFormat = settings.format;
+      
       qualityValue.textContent = value;
-      qualityDisplay.textContent = `${value}%`;
+      
+      // Show different text for PNG and BMP to indicate size reduction strategy
+      if (useFormat === 'image/png') {
+        qualityDisplay.textContent = `${value}%`;
+      } else if (useFormat === 'image/bmp') {
+        qualityDisplay.textContent = `${value}%`;
+      } else {
+        qualityDisplay.textContent = `${value}%`;
+      }
+      
+      // Update the label as well
+      updateQualityLabel();
     }
 
     // Update format dropdown with individual settings
@@ -406,9 +435,9 @@
     function getOptimalQuality(file, format) {
       const qualityMap = {
         'image/jpeg': 60,  // Aggressive compression for JPEG
-        'image/png': 70,   // Moderate compression for PNG
+        'image/png': 80,   // Moderate size reduction for PNG (quality now affects size, not compression)
         'image/webp': 65,  // Excellent compression for WebP
-        'image/bmp': 85    // Minimal compression for BMP
+        'image/bmp': 70    // Moderate size reduction for BMP (converts to PNG)
       };
       
       return qualityMap[format] || 70; // Default to 70% for unknown formats
@@ -432,24 +461,50 @@
       let newWidth = originalImage.width;
       let newHeight = originalImage.height;
 
-      // Resize only if image is too large
-      if (newWidth > maxDimension || newHeight > maxDimension) {
-        const ratio = Math.min(
-          maxDimension / newWidth,
-          maxDimension / newHeight
-        );
-        newWidth = Math.floor(newWidth * ratio);
-        newHeight = Math.floor(newHeight * ratio);
+      // For PNG and BMP, apply more aggressive size reduction for better optimization
+      let sizeReductionFactor = 1.0;
+      if (useFormat === 'image/png' || useFormat === 'image/bmp') {
+        // Apply quality-based size reduction for PNG/BMP
+        sizeReductionFactor = Math.max(0.5, quality); // Reduce size based on quality setting
+        newWidth = Math.floor(newWidth * sizeReductionFactor);
+        newHeight = Math.floor(newHeight * sizeReductionFactor);
+      } else {
+        // Resize only if image is too large for other formats
+        if (newWidth > maxDimension || newHeight > maxDimension) {
+          const ratio = Math.min(
+            maxDimension / newWidth,
+            maxDimension / newHeight
+          );
+          newWidth = Math.floor(newWidth * ratio);
+          newHeight = Math.floor(newHeight * ratio);
+        }
       }
 
       tempCanvas.width = newWidth;
       tempCanvas.height = newHeight;
 
+      // Enable high-quality rendering
+      tempCtx.imageSmoothingEnabled = true;
+      tempCtx.imageSmoothingQuality = 'high';
+
       // Draw image with new dimensions
       tempCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
 
-      // Apply optimization with quality setting
-      optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
+      // Special handling for different formats
+      let optimizedDataUrl;
+      
+      if (useFormat === 'image/png') {
+        // For PNG, use quality 1.0 to preserve transparency and quality
+        // PNG compression is lossless, so we rely on size reduction for optimization
+        optimizedDataUrl = tempCanvas.toDataURL(useFormat, 1.0);
+      } else if (useFormat === 'image/bmp') {
+        // For BMP, convert to PNG for better compression
+        // BMP is uncompressed, so any conversion will likely reduce size
+        optimizedDataUrl = tempCanvas.toDataURL('image/png', 1.0);
+      } else {
+        // For JPEG and WebP, use the quality setting
+        optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
+      }
 
       // Load optimized image
       optimizedImage.onload = function () {
@@ -461,9 +516,26 @@
         const base64String = optimizedDataUrl.split(",")[1];
         const optimizedSizeBytes = Math.floor((base64String.length * 3) / 4);
 
-        // Check if optimization actually reduced size
-        if (optimizedSizeBytes > originalSizeBytes) {
-          // If optimization increased size, use original image
+        // Always show optimization results for PNG and BMP
+        // For other formats, only show if optimization was successful
+        if (useFormat === 'image/png' || useFormat === 'image/bmp' || optimizedSizeBytes <= originalSizeBytes) {
+          // Optimization was successful or we want to show PNG/BMP results
+          originalSize.textContent = formatFileSize(originalSizeBytes);
+          optimizedSize.textContent = formatFileSize(optimizedSizeBytes);
+
+          const savingsBytes = originalSizeBytes - optimizedSizeBytes;
+          const reductionPercent = (
+            (savingsBytes / originalSizeBytes) *
+            100
+          ).toFixed(1);
+          
+          // Store optimization results in individual settings
+          if (individualSettings[selectedImageIndex]) {
+            individualSettings[selectedImageIndex].optimizedSize = optimizedSizeBytes;
+            individualSettings[selectedImageIndex].reduction = parseFloat(reductionPercent);
+          }
+        } else {
+          // For other formats, if optimization increased size, use original image
           optimizedImage.src = URL.createObjectURL(originalFile);
           optimizedDataUrl = URL.createObjectURL(originalFile);
           
@@ -474,17 +546,9 @@
           // Update individual settings to prevent future optimization attempts
           if (individualSettings[selectedImageIndex]) {
             individualSettings[selectedImageIndex].quality = 100;
+            individualSettings[selectedImageIndex].optimizedSize = originalSizeBytes;
+            individualSettings[selectedImageIndex].reduction = 0;
           }
-        } else {
-          // Optimization was successful
-        originalSize.textContent = formatFileSize(originalSizeBytes);
-        optimizedSize.textContent = formatFileSize(optimizedSizeBytes);
-
-        const savingsBytes = originalSizeBytes - optimizedSizeBytes;
-        const reductionPercent = (
-          (savingsBytes / originalSizeBytes) *
-          100
-        ).toFixed(1);
         }
 
         downloadBtn.disabled = false;
@@ -1042,6 +1106,9 @@
         // Update format dropdown with individual settings
         updateFormatDropdown(selectedImageData.type, settings.format);
         
+        // Update quality label based on current format
+        updateQualityLabel();
+        
         processImageFile(selectedImageData.file);
         updateGallery();
       }
@@ -1255,9 +1322,28 @@
           const tempCanvas = document.createElement("canvas");
           const tempCtx = tempCanvas.getContext("2d");
 
-          // Use original dimensions - no size limitation
-          const newWidth = img.width;
-          const newHeight = img.height;
+          // Calculate dimensions with optimization strategy
+          let newWidth = img.width;
+          let newHeight = img.height;
+
+          // For PNG and BMP, apply more aggressive size reduction for better optimization
+          if (useFormat === 'image/png' || useFormat === 'image/bmp') {
+            // Apply quality-based size reduction for PNG/BMP
+            const sizeReductionFactor = Math.max(0.5, quality); // Reduce size based on quality setting
+            newWidth = Math.floor(newWidth * sizeReductionFactor);
+            newHeight = Math.floor(newHeight * sizeReductionFactor);
+          } else {
+            // Use original dimensions for other formats
+            const maxDimension = 2000;
+            if (newWidth > maxDimension || newHeight > maxDimension) {
+              const ratio = Math.min(
+                maxDimension / newWidth,
+                maxDimension / newHeight
+              );
+              newWidth = Math.floor(newWidth * ratio);
+              newHeight = Math.floor(newHeight * ratio);
+            }
+          }
 
           tempCanvas.width = newWidth;
           tempCanvas.height = newHeight;
@@ -1266,6 +1352,20 @@
           tempCtx.imageSmoothingEnabled = true;
           tempCtx.imageSmoothingQuality = 'high';
           tempCtx.drawImage(img, 0, 0, newWidth, newHeight);
+
+          // Special handling for different formats
+          let optimizedDataUrl;
+          
+          if (useFormat === 'image/png') {
+            // For PNG, use quality 1.0 to preserve transparency and quality
+            optimizedDataUrl = tempCanvas.toDataURL(useFormat, 1.0);
+          } else if (useFormat === 'image/bmp') {
+            // For BMP, convert to PNG for better compression
+            optimizedDataUrl = tempCanvas.toDataURL('image/png', 1.0);
+          } else {
+            // For JPEG and WebP, use the quality setting
+            optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
+          }
 
           // For large files, use toBlob directly instead of toDataURL for better performance
           if (file.size > 10 * 1024 * 1024) { // 10MB threshold
@@ -1280,10 +1380,9 @@
               } else {
                 reject(new Error('Failed to generate optimized image'));
               }
-            }, useFormat, quality);
+            }, useFormat === 'image/bmp' ? 'image/png' : useFormat, useFormat === 'image/png' ? 1.0 : quality);
           } else {
             // For smaller files, use toDataURL for compatibility
-            const optimizedDataUrl = tempCanvas.toDataURL(useFormat, quality);
             tempCanvas.toBlob((blob) => {
               if (blob) {
                 resolve({
@@ -1295,7 +1394,7 @@
               } else {
                 reject(new Error('Failed to generate optimized image'));
               }
-            }, useFormat, quality);
+            }, useFormat === 'image/bmp' ? 'image/png' : useFormat, useFormat === 'image/png' ? 1.0 : quality);
           }
         };
         
@@ -1543,6 +1642,28 @@
         }
       });
 
+      // Add touch events for quality slider on mobile
+      qualitySlider.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        // Ensure the slider is focused for better touch handling
+        qualitySlider.focus();
+      });
+
+      qualitySlider.addEventListener("touchend", function(e) {
+        e.preventDefault();
+        updateQualityDisplay();
+        
+        // Save individual settings for current image
+        if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
+          individualSettings[selectedImageIndex].quality = parseInt(qualitySlider.value);
+        }
+        
+        if (originalFile) {
+          // Force re-optimization to update size display
+          setTimeout(() => optimizeImage(), 10);
+        }
+      });
+
       formatSelect.addEventListener("change", function () {
         // Save individual settings for current image
         if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
@@ -1558,6 +1679,9 @@
           qualityValue.textContent = optimalQuality;
           qualityDisplay.textContent = `${optimalQuality}%`;
           
+          // Update quality label based on new format
+          updateQualityLabel();
+          
           hasIndividualFormats = true; // Mark that individual formats have been set
           // Update gallery to reflect the format change
           debouncedUpdateGallery();
@@ -1572,10 +1696,17 @@
       // Download button
       downloadBtn.addEventListener("click", downloadImage);
 
-      // Slider dragging
+      // Slider dragging - Mouse events
       comparisonSlider.addEventListener("mousedown", function (e) {
         isDraggingSlider = true;
         document.body.style.cursor = "ew-resize";
+        document.body.style.userSelect = "none";
+      });
+
+      // Touch events for comparison slider
+      comparisonSlider.addEventListener("touchstart", function (e) {
+        e.preventDefault();
+        isDraggingSlider = true;
         document.body.style.userSelect = "none";
       });
 
@@ -1585,10 +1716,27 @@
         document.body.style.userSelect = "";
       });
 
+      document.addEventListener("touchend", function () {
+        isDraggingSlider = false;
+        document.body.style.userSelect = "";
+      });
+
       document.addEventListener("mousemove", function (e) {
         if (isDraggingSlider && originalFile) {
           const rect = canvas.getBoundingClientRect();
           const x = e.clientX - rect.left;
+          sliderPosition = Math.max(0, Math.min(1, x / rect.width));
+          drawImages();
+        }
+      });
+
+      // Touch move for comparison slider
+      document.addEventListener("touchmove", function (e) {
+        if (isDraggingSlider && originalFile) {
+          e.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          const touch = e.touches[0];
+          const x = touch.clientX - rect.left;
           sliderPosition = Math.max(0, Math.min(1, x / rect.width));
           drawImages();
         }
@@ -1611,7 +1759,62 @@
         handleZoom(delta);
       });
 
-      // Canvas panning
+      // Touch zoom (pinch to zoom)
+      let initialDistance = 0;
+      let initialScale = 1;
+
+      canvas.addEventListener("touchstart", function (e) {
+        if (e.touches.length === 2) {
+          // Two finger touch - pinch to zoom
+          e.preventDefault();
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          initialDistance = Math.sqrt(
+            Math.pow(touch2.clientX - touch1.clientX, 2) +
+            Math.pow(touch2.clientY - touch1.clientY, 2)
+          );
+          initialScale = scale;
+        } else if (e.touches.length === 1) {
+          // Single finger touch - panning
+          const touch = e.touches[0];
+          startX = touch.clientX - offsetX;
+          startY = touch.clientY - offsetY;
+          isPanning = true;
+        }
+      });
+
+      canvas.addEventListener("touchmove", function (e) {
+        if (e.touches.length === 2) {
+          // Pinch to zoom
+          e.preventDefault();
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          const currentDistance = Math.sqrt(
+            Math.pow(touch2.clientX - touch1.clientX, 2) +
+            Math.pow(touch2.clientY - touch1.clientY, 2)
+          );
+          
+          if (initialDistance > 0) {
+            const scaleFactor = currentDistance / initialDistance;
+            scale = Math.min(Math.max(0.1, initialScale * scaleFactor), 4);
+            drawImages();
+          }
+        } else if (e.touches.length === 1 && isPanning) {
+          // Panning
+          e.preventDefault();
+          const touch = e.touches[0];
+          offsetX = touch.clientX - startX;
+          offsetY = touch.clientY - startY;
+          drawImages();
+        }
+      });
+
+      canvas.addEventListener("touchend", function (e) {
+        isPanning = false;
+        initialDistance = 0;
+      });
+
+      // Canvas panning - Mouse events
       canvas.addEventListener("mousedown", function (e) {
         if (e.button === 0) {
           // Left mouse button
@@ -1634,6 +1837,65 @@
           drawImages();
         }
       });
+    }
+
+    // Detect mobile device
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+             (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+    }
+
+    // Detect iOS Safari specifically
+    function isIOSSafari() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+             /Safari/.test(navigator.userAgent) && 
+             !/CriOS|FxiOS|OPiOS|mercury/.test(navigator.userAgent);
+    }
+
+    // Apply mobile-specific optimizations
+    function applyMobileOptimizations() {
+      if (isMobileDevice()) {
+        // Add mobile-specific classes
+        document.body.classList.add('mobile-device');
+        
+        if (isIOSSafari()) {
+          document.body.classList.add('ios-safari');
+          
+          // iOS Safari specific fixes
+          const style = document.createElement('style');
+          style.textContent = `
+            /* iOS Safari specific fixes */
+            input[type="range"] {
+              -webkit-appearance: none;
+              background: transparent;
+            }
+            
+            input[type="range"]::-webkit-slider-track {
+              -webkit-appearance: none;
+              background: #dee2e6;
+              height: 8px;
+              border-radius: 4px;
+            }
+            
+            input[type="range"]::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              height: 24px;
+              width: 24px;
+              border-radius: 50%;
+              background: var(--primary);
+              border: 2px solid white;
+              box-shadow: 0 2px 8px rgba(67, 97, 238, 0.4);
+              margin-top: -8px;
+            }
+            
+            /* Prevent zoom on input focus */
+            input, select, textarea {
+              font-size: 16px !important;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      }
     }
 
     // Disable browser resize functionality
@@ -1681,12 +1943,16 @@
 
     // Initialize the app
     function init() {
+      // Apply mobile optimizations first
+      applyMobileOptimizations();
+      
       // Disable browser resize
       disableBrowserResize();
       
       resizeCanvas();
       initEventListeners();
       updateQualityDisplay();
+      updateQualityLabel(); // Initialize quality label
 
       // Handle window resize
       window.addEventListener("resize", resizeCanvas);
