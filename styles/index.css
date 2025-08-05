@@ -39,7 +39,7 @@ body {
 
 body {
     background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-    min-height: 100vh;
+    min-height: 100dvh;
     color: var(--dark);
     background-size: 400% 400%;
     animation: gradientBG 15s ease infinite;
@@ -62,7 +62,7 @@ body {
 
 .app-container {
     width: 100%;
-    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -98,9 +98,10 @@ body {
 /* Mobile-specific canvas improvements */
 @media (max-width: 768px) {
     #comparisonCanvas {
-        cursor: default; /* Remove cursor on mobile */
+        cursor: default;
+        /* Remove cursor on mobile */
     }
-    
+
     .canvas-container {
         /* Ensure proper touch handling */
         touch-action: manipulation;
@@ -144,14 +145,17 @@ body {
 }
 
 .comparison-slider::after {
-    content: "↔";
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: white;
-    font-size: 22px;
-    font-weight: bold;
+    width: 38px;
+    height: 38px;
+    background-image: url('../assets/divider.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
     /* Mobile touch improvements */
     pointer-events: none;
     -webkit-tap-highlight-color: transparent;
@@ -160,16 +164,20 @@ body {
 /* Mobile-specific comparison slider improvements */
 @media (max-width: 768px) {
     .comparison-slider {
-        width: 6px; /* Thicker for mobile touch */
+        width: 6px;
+        /* Thicker for mobile touch */
     }
-    
+
     .comparison-slider::before {
-        width: 56px; /* Larger touch target */
+        width: 56px;
+        /* Larger touch target */
         height: 56px;
     }
-    
+
     .comparison-slider::after {
-        font-size: 24px; /* Larger arrow */
+        width: 32px;
+        /* Larger image for mobile */
+        height: 32px;
     }
 }
 
@@ -664,7 +672,7 @@ select:focus {
     .app-container {
         flex-direction: column;
         /* height: auto; */
-        min-height: 100vh;
+        min-height: 100dvh;
         overflow: auto;
         justify-content: space-between;
     }
@@ -1413,28 +1421,32 @@ select:focus {
 /* Mobile-specific slider improvements */
 @media (max-width: 768px) {
     input[type="range"] {
-        height: 8px; /* Larger touch target */
+        height: 8px;
+        /* Larger touch target */
         margin: 10px 0;
     }
-    
+
     input[type="range"]::-webkit-slider-thumb {
-        width: 24px; /* Larger thumb for mobile */
+        width: 24px;
+        /* Larger thumb for mobile */
         height: 24px;
         border: 2px solid white;
     }
-    
+
     input[type="range"]::-moz-range-thumb {
         width: 24px;
         height: 24px;
         border: 2px solid white;
     }
-    
+
     .slider-container {
-        gap: 20px; /* More space for touch */
+        gap: 20px;
+        /* More space for touch */
     }
-    
+
     .value-display {
-        width: 70px; /* Larger display for mobile */
+        width: 70px;
+        /* Larger display for mobile */
         padding: 10px;
         font-size: 1rem;
     }
@@ -1442,6 +1454,7 @@ select:focus {
 
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
+
     /* Prevent unwanted touch behaviors */
     * {
         -webkit-tap-highlight-color: transparent;
@@ -1451,7 +1464,7 @@ select:focus {
         -ms-user-select: none;
         user-select: none;
     }
-    
+
     /* Allow text selection in specific areas */
     .gallery-name,
     .stat-label,
@@ -1461,35 +1474,42 @@ select:focus {
         -ms-user-select: text;
         user-select: text;
     }
-    
+
     /* Improve touch targets */
     .btn,
-    .browse-btn,
-    .zoom-btn {
-        min-height: 44px; /* iOS recommended minimum touch target */
-        min-width: 44px;
+    .browse-btn {
+        min-height: 36px;
+        /* iOS recommended minimum touch target */
+        min-width: 36px;
     }
-    
+
+    .zoom-btn {
+        height: 30px;
+        width: 30px;
+        min-height: 30px;
+        min-width: 30px;
+    }
+
     /* Improve slider touch experience */
     .slider-container {
         padding: 10px 0;
     }
-    
+
     /* Better mobile layout */
     .control-panel {
-        padding: 20px 15px;
+        padding: 20px 15px 60px;
     }
-    
+
     .panel-section {
         margin-bottom: 20px;
     }
-    
+
     /* Improve format controls on mobile */
     .format-controls {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .format-controls select,
     .format-controls .btn {
         width: 100%;
@@ -1532,16 +1552,18 @@ select:focus {
 /* Mobile device specific improvements */
 .mobile-device .comparison-slider {
     /* Larger touch target for mobile */
-    width: 8px;
+    width: 5px;
 }
 
 .mobile-device .comparison-slider::before {
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
 }
 
 .mobile-device .comparison-slider::after {
-    font-size: 26px;
+    width: 26px;
+    /* Larger image for mobile devices */
+    height: 26px;
 }
 
 /* Improve touch feedback */
