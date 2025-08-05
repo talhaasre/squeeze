@@ -24,16 +24,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Free Online Image Compressor | SQUEEZE – Compress & Compare Images</title>
+  <title>Free Online Image Compressor | COMPRESS – Compress & Compare Images</title>
   <meta name="description"
-    content="SQUEEZE is a fast, free online image compressor that reduces image size in bulk with real-time quality comparison. PNG, JPG, WebP supported.">
-  <meta property="og:title" content="SQUEEZE – Compress Images Online with Comparison">
+    content="COMPRESS is a fast, free online image compressor that reduces image size in bulk with real-time quality comparison. PNG, JPG, WebP supported.">
+  <meta property="og:title" content="COMPRESS – Compress Images Online with Comparison">
   <meta property="og:description"
     content="Compress multiple images online and compare quality in real-time. Free, fast, and secure.">
-  <meta property="og:image" content="https://squeeze.asresoft.com/assets/social-thumbnail.jpg">
-  <meta property="og:url" content="https://squeeze.asresoft.com/">
+  <meta property="og:image" content="https://compress-app.com/assets/social-thumbnail.jpg">
+  <meta property="og:url" content="https://compress-app.com/">
   <meta name="twitter:card" content="android-chrome-512x512.png">
-  <link rel="canonical" href="https://squeeze.asresoft.com" />
+  <link rel="canonical" href="https://compress-app.com" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -76,8 +76,8 @@
 
   <div class="app-container">
     <div class="app-title">
-      <div class="app-title-text"><i class="fas fa-images"></i> SQUEEZE</div>
-      <!-- <img width="80" height="80" src="android-chrome-512x512.png" alt="squeeze logo" style="border-radius: 5px;"> -->
+      <div class="app-title-text"><i class="fas fa-images"></i> COMPRESS</div>
+      <!-- <img width="80" height="80" src="android-chrome-512x512.png" alt="compress logo" style="border-radius: 5px;"> -->
       <h1 id="tagline" style="font-size: 1rem; font-weight: 400;">
         compress images in bulk and compare quality
       </h1>
@@ -188,7 +188,7 @@
     <div class="info-box">
       <i class="fas fa-info-circle"></i> All processing happens locally in
       your browser. <br /><br /> All rights reserved &copy;
-      <?php echo date("Y"); ?> SQUEEZE by
+      <?php echo date("Y"); ?> COMPRESS by
       <a href="https://asresoft.com" target="_blank" style="color: inherit; text-decoration: none">Asresoft</a>.
     </div>
   </div>
@@ -1797,7 +1797,7 @@
 
           const zip = new JSZip();
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-          let zipName = `squeezed-${timestamp}`;
+          let zipName = `compressed-${timestamp}`;
 
           let processedCount = 0;
 
@@ -2293,7 +2293,7 @@
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "SQUEEZE - Image Compressor",
+      "name": "COMPRESS - Image Compressor",
       "operatingSystem": "All",
       "applicationCategory": "MultimediaApplication",
       "offers": {
