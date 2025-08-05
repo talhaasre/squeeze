@@ -95,6 +95,10 @@ body {
     -ms-user-select: none;
 }
 
+#floatingDownloadBtn {
+    display: none;
+}
+
 /* Mobile-specific canvas improvements */
 @media (max-width: 768px) {
     #comparisonCanvas {
@@ -323,6 +327,9 @@ input[type="range"] {
     /* iOS Safari improvements */
     -webkit-tap-highlight-color: transparent;
     touch-action: pan-x;
+    user-select: auto !important;
+    -webkit-user-select: auto !important;
+    pointer-events: auto !important;
 }
 
 input[type="range"]:hover {

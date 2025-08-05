@@ -162,7 +162,7 @@
   </div>
   
   <!-- Floating Download Button -->
-  <div class="floating-download-btn" id="floatingDownloadBtn">
+  <div class="floating-download-btn" id="floatingDownloadBtn" style="display: none;">
     <button class="floating-btn" onclick="downloadImage()" title="Download Optimized Image" disabled>
       <i class="fas fa-download"></i>
     </button>
@@ -1357,6 +1357,10 @@
       comparisonSlider.style.display = "block";
       zoomControls.style.display = "flex";
       dragNotice.style.display = "block";
+      // Show floating download button only on mobile
+      if (window.innerWidth < 768) {
+        document.getElementById('floatingDownloadBtn').style.display = 'flex';
+      }
       // Don't show control panel here - it will be shown when optimization is complete
     }
 
@@ -1694,122 +1698,144 @@
 
     // Download image(s)
     async function downloadImage() {
-      if (uploadedImages.length === 0) return;
+      // Get the floating button and its icon
+      const floatingBtn = document.getElementById('floatingDownloadBtn')?.querySelector('button');
+      const floatingIcon = floatingBtn?.querySelector('i');
 
-      if (uploadedImages.length === 1) {
-        // Always generate the latest optimized image for download
-        const imageData = uploadedImages[0];
-        const settings = individualSettings[0] || { quality: 85, format: imageData.type };
-        const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
-
-        let baseName = imageData.name;
-        const lastDot = baseName.lastIndexOf(".");
-        if (lastDot > 0) {
-          baseName = baseName.substring(0, lastDot);
-        }
-
-        const finalFormat = settings.finalFormat || settings.format;
-        const singleFormatExt = getFormatExtension(finalFormat);
-
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(optimized.blob);
-        link.download = `${baseName}-optimized.${singleFormatExt}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Clean up the object URL
-        URL.revokeObjectURL(link.href);
-        if (optimized.dataUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(optimized.dataUrl);
-        }
-        return;
+      // Show spinner on floating button
+      if (floatingBtn && floatingIcon) {
+        floatingBtn.disabled = true;
+        floatingIcon.classList.remove('fa-download');
+        floatingIcon.classList.add('fa-spinner', 'fa-spin');
       }
 
-      const useFormat = formatSelect.value;
-      const quality = parseInt(qualitySlider.value) / 100;
-      const formatExt = getFormatExtension(useFormat);
-
-      downloadBtn.disabled = true;
-      downloadBtnText.textContent = "Creating ZIP...";
-
       try {
-        // Check if JSZip is available
-        if (typeof JSZip === 'undefined') {
-          throw new Error('JSZip library not loaded');
-        }
-        
-        const zip = new JSZip();
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        let zipName = `squeezed-${timestamp}`;
-        
-        let processedCount = 0;
+        if (uploadedImages.length === 0) return;
 
-        // Generate optimized images for all uploaded images with individual settings
-        for (let i = 0; i < uploadedImages.length; i++) {
-          // Update progress
-          downloadBtnText.textContent = `Processing ${i + 1}/${uploadedImages.length}...`;
-          
-          const imageData = uploadedImages[i];
-          const settings = individualSettings[i] || { quality: 85, format: imageData.type };
-          
-          try {
-            const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
-            
-            // Get base name without extension
-            let baseName = imageData.name;
-            const lastDot = baseName.lastIndexOf(".");
-            if (lastDot > 0) {
-              baseName = baseName.substring(0, lastDot);
-            }
+        if (uploadedImages.length === 1) {
+          // Always generate the latest optimized image for download
+          const imageData = uploadedImages[0];
+          const settings = individualSettings[0] || { quality: 85, format: imageData.type };
+          const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
 
-            // Use the final format that was actually used for optimization
-            const finalFormat = settings.finalFormat || settings.format;
-            const fileName = `${baseName}-optimized.${getFormatExtension(finalFormat)}`;
-            
-            zip.file(fileName, optimized.blob);
-            processedCount++;
-            
-            // Clean up blob URL if it was created
-            if (optimized.dataUrl && optimized.dataUrl.startsWith('blob:')) {
-              URL.revokeObjectURL(optimized.dataUrl);
-            }
-          } catch (error) {
-            console.error(`Error processing ${imageData.name}:`, error);
-            // Continue with other files
+          let baseName = imageData.name;
+          const lastDot = baseName.lastIndexOf(".");
+          if (lastDot > 0) {
+            baseName = baseName.substring(0, lastDot);
           }
+
+          const finalFormat = settings.finalFormat || settings.format;
+          const singleFormatExt = getFormatExtension(finalFormat);
+
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(optimized.blob);
+          link.download = `${baseName}-optimized.${singleFormatExt}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Clean up the object URL
+          URL.revokeObjectURL(link.href);
+          if (optimized.dataUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(optimized.dataUrl);
+          }
+          return;
         }
 
-        if (processedCount === 0) {
-          throw new Error('No images were successfully processed');
-        }
-        
-        // Generate and download zip
-        downloadBtnText.textContent = "Generating ZIP...";
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        
-        if (!zipBlob || zipBlob.size === 0) {
-          throw new Error('Generated ZIP file is empty or invalid');
-        }
-        
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(zipBlob);
-        link.download = `${zipName}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up zip blob URL
-        URL.revokeObjectURL(link.href);
+        const useFormat = formatSelect.value;
+        const quality = parseInt(qualitySlider.value) / 100;
+        const formatExt = getFormatExtension(useFormat);
 
-        // Update download button text
-        downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+        downloadBtn.disabled = true;
+        downloadBtnText.textContent = "Creating ZIP...";
+
+        try {
+          // Check if JSZip is available
+          if (typeof JSZip === 'undefined') {
+            throw new Error('JSZip library not loaded');
+          }
+          
+          const zip = new JSZip();
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+          let zipName = `squeezed-${timestamp}`;
+          
+          let processedCount = 0;
+
+          // Generate optimized images for all uploaded images with individual settings
+          for (let i = 0; i < uploadedImages.length; i++) {
+            // Update progress
+            downloadBtnText.textContent = `Processing ${i + 1}/${uploadedImages.length}...`;
+            
+            const imageData = uploadedImages[i];
+            const settings = individualSettings[i] || { quality: 85, format: imageData.type };
+            
+            try {
+              const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
+              
+              // Get base name without extension
+              let baseName = imageData.name;
+              const lastDot = baseName.lastIndexOf(".");
+              if (lastDot > 0) {
+                baseName = baseName.substring(0, lastDot);
+              }
+
+              // Use the final format that was actually used for optimization
+              const finalFormat = settings.finalFormat || settings.format;
+              const fileName = `${baseName}-optimized.${getFormatExtension(finalFormat)}`;
+              
+              zip.file(fileName, optimized.blob);
+              processedCount++;
+              
+              // Clean up blob URL if it was created
+              if (optimized.dataUrl && optimized.dataUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(optimized.dataUrl);
+              }
+            } catch (error) {
+              console.error(`Error processing ${imageData.name}:`, error);
+              // Continue with other files
+            }
+          }
+
+          if (processedCount === 0) {
+            throw new Error('No images were successfully processed');
+          }
+          
+          // Generate and download zip
+          downloadBtnText.textContent = "Generating ZIP...";
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          
+          if (!zipBlob || zipBlob.size === 0) {
+            throw new Error('Generated ZIP file is empty or invalid');
+          }
+          
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(zipBlob);
+          link.download = `${zipName}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up zip blob URL
+          URL.revokeObjectURL(link.href);
+
+          // Update download button text
+          downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+        } catch (error) {
+          console.error("Error creating ZIP:", error);
+          downloadBtnText.textContent = "Download";
+          showErrorModal(`Error creating ZIP file: ${error.message}. Please try again.`);
+        } finally {
+          downloadBtn.disabled = false;
+        }
       } catch (error) {
-        console.error("Error creating ZIP:", error);
-        downloadBtnText.textContent = "Download";
-        showErrorModal(`Error creating ZIP file: ${error.message}. Please try again.`);
+        // ...your error handling (optional)...
       } finally {
-        downloadBtn.disabled = false;
+        // Restore the icon after download (success or error)
+        if (floatingBtn && floatingIcon) {
+          floatingIcon.classList.remove('fa-spinner', 'fa-spin');
+          floatingIcon.classList.add('fa-download');
+          floatingBtn.disabled = false;
+        }
       }
     }
 
@@ -1843,28 +1869,6 @@
 
       // Settings changes trigger auto-optimization and save individual settings
       qualitySlider.addEventListener("input", function () {
-        updateQualityDisplay();
-        
-        // Save individual settings for current image
-        if (selectedImageIndex >= 0 && selectedImageIndex < individualSettings.length) {
-          individualSettings[selectedImageIndex].quality = parseInt(qualitySlider.value);
-        }
-        
-        if (originalFile) {
-          // Force re-optimization to update size display
-          setTimeout(() => optimizeImage(), 10);
-        }
-      });
-
-      // Add touch events for quality slider on mobile
-      qualitySlider.addEventListener("touchstart", function(e) {
-        e.preventDefault();
-        // Ensure the slider is focused for better touch handling
-        qualitySlider.focus();
-      });
-
-      qualitySlider.addEventListener("touchend", function(e) {
-        e.preventDefault();
         updateQualityDisplay();
         
         // Save individual settings for current image
@@ -1917,21 +1921,9 @@
         document.body.style.userSelect = "none";
       });
 
-      // Touch events for comparison slider
-      comparisonSlider.addEventListener("touchstart", function (e) {
-        e.preventDefault();
-        isDraggingSlider = true;
-        document.body.style.userSelect = "none";
-      });
-
       document.addEventListener("mouseup", function () {
         isDraggingSlider = false;
         document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      });
-
-      document.addEventListener("touchend", function () {
-        isDraggingSlider = false;
         document.body.style.userSelect = "";
       });
 
@@ -2206,29 +2198,15 @@
     // Hide floating download button by default
     document.getElementById('floatingDownloadBtn').style.display = 'none';
 
-    // In showCanvasPage (where zoom controls are shown), also show floating download button
-    function showCanvasPage() {
-      dropZone.classList.add("hidden");
-      canvas.style.display = "block";
-      comparisonSlider.style.display = "block";
-      zoomControls.style.display = "flex";
-      dragNotice.style.display = "block";
-      // Show floating download button
-      document.getElementById('floatingDownloadBtn').style.display = 'flex';
-      // Don't show control panel here - it will be shown when optimization is complete
-    }
-
-    // In showUploadPage (where zoom controls are hidden), also hide floating download button
-    function showUploadPage() {
-      dropZone.classList.remove("hidden");
-      canvas.style.display = "none";
-      comparisonSlider.style.display = "none";
-      zoomControls.style.display = "none";
-      dragNotice.style.display = "none";
-      // Hide floating download button
-      document.getElementById('floatingDownloadBtn').style.display = 'none';
-      controlPanel.classList.add("hidden");
-    }
+    // Responsive update on resize
+    window.addEventListener('resize', function() {
+      const btn = document.getElementById('floatingDownloadBtn');
+      if (window.innerWidth < 768 && btn.style.display !== 'flex' && canvas.style.display === 'block') {
+        btn.style.display = 'flex';
+      } else if (window.innerWidth >= 768) {
+        btn.style.display = 'none';
+      }
+    });
   </script>
 </body>
 
