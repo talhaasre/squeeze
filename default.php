@@ -155,10 +155,17 @@
 
     <div class="info-box">
       <i class="fas fa-info-circle"></i> All processing happens locally in
-      your browser. <br /> All rights reserved &copy;
+      your browser. <br /><br /> All rights reserved &copy;
       <?php echo date("Y"); ?> SQUEEZE by
       <a href="https://asresoft.com" target="_blank" style="color: inherit; text-decoration: none">Asresoft</a>.
     </div>
+  </div>
+  
+  <!-- Floating Download Button -->
+  <div class="floating-download-btn" id="floatingDownloadBtn">
+    <button class="floating-btn" onclick="downloadImage()" title="Download Optimized Image" disabled>
+      <i class="fas fa-download"></i>
+    </button>
   </div>
 
   <script>
@@ -647,7 +654,7 @@
           }
         }
 
-        downloadBtn.disabled = false;
+        setDownloadButtonsEnabled(true);
 
         // Update download button text based on number of images
         if (uploadedImages.length === 1) {
@@ -1689,114 +1696,120 @@
     async function downloadImage() {
       if (uploadedImages.length === 0) return;
 
+      if (uploadedImages.length === 1) {
+        // Always generate the latest optimized image for download
+        const imageData = uploadedImages[0];
+        const settings = individualSettings[0] || { quality: 85, format: imageData.type };
+        const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
+
+        let baseName = imageData.name;
+        const lastDot = baseName.lastIndexOf(".");
+        if (lastDot > 0) {
+          baseName = baseName.substring(0, lastDot);
+        }
+
+        const finalFormat = settings.finalFormat || settings.format;
+        const singleFormatExt = getFormatExtension(finalFormat);
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(optimized.blob);
+        link.download = `${baseName}-optimized.${singleFormatExt}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the object URL
+        URL.revokeObjectURL(link.href);
+        if (optimized.dataUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(optimized.dataUrl);
+        }
+        return;
+      }
+
       const useFormat = formatSelect.value;
       const quality = parseInt(qualitySlider.value) / 100;
       const formatExt = getFormatExtension(useFormat);
 
-      if (uploadedImages.length === 1) {
-        // Single image download
-        if (!optimizedDataUrl) return;
+      downloadBtn.disabled = true;
+      downloadBtnText.textContent = "Creating ZIP...";
 
-        // Use individual settings for single image
-        const settings = individualSettings[0] || { quality: 85, format: originalFile.type };
-        const finalFormat = settings.finalFormat || settings.format;
-        const singleFormatExt = getFormatExtension(finalFormat);
-
-      let baseName = originalFile.name;
-      const lastDot = baseName.lastIndexOf(".");
-      if (lastDot > 0) {
-        baseName = baseName.substring(0, lastDot);
-      }
-
-      const link = document.createElement("a");
-      link.href = optimizedDataUrl;
-        link.download = `${baseName}-optimized.${singleFormatExt}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      } else {
-        // Multiple images - create zip
-        downloadBtn.disabled = true;
-        downloadBtnText.textContent = "Creating ZIP...";
-
-        try {
-          // Check if JSZip is available
-          if (typeof JSZip === 'undefined') {
-            throw new Error('JSZip library not loaded');
-          }
-          
-          const zip = new JSZip();
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-          let zipName = `squeezed-${timestamp}`;
-          
-          let processedCount = 0;
-
-          // Generate optimized images for all uploaded images with individual settings
-          for (let i = 0; i < uploadedImages.length; i++) {
-            // Update progress
-            downloadBtnText.textContent = `Processing ${i + 1}/${uploadedImages.length}...`;
-            
-            const imageData = uploadedImages[i];
-            const settings = individualSettings[i] || { quality: 85, format: imageData.type };
-            
-            try {
-              const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
-              
-              // Get base name without extension
-              let baseName = imageData.name;
-              const lastDot = baseName.lastIndexOf(".");
-              if (lastDot > 0) {
-                baseName = baseName.substring(0, lastDot);
-              }
-
-              // Use the final format that was actually used for optimization
-              const finalFormat = settings.finalFormat || settings.format;
-              const fileName = `${baseName}-optimized.${getFormatExtension(finalFormat)}`;
-              
-              zip.file(fileName, optimized.blob);
-              processedCount++;
-              
-              // Clean up blob URL if it was created
-              if (optimized.dataUrl && optimized.dataUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(optimized.dataUrl);
-              }
-            } catch (error) {
-              console.error(`Error processing ${imageData.name}:`, error);
-              // Continue with other files
-            }
-          }
-
-          if (processedCount === 0) {
-            throw new Error('No images were successfully processed');
-          }
-          
-          // Generate and download zip
-          downloadBtnText.textContent = "Generating ZIP...";
-          const zipBlob = await zip.generateAsync({ type: "blob" });
-          
-          if (!zipBlob || zipBlob.size === 0) {
-            throw new Error('Generated ZIP file is empty or invalid');
-          }
-          
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(zipBlob);
-          link.download = `${zipName}.zip`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          // Clean up zip blob URL
-          URL.revokeObjectURL(link.href);
-
-          // Update download button text
-          downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
-        } catch (error) {
-          console.error("Error creating ZIP:", error);
-          downloadBtnText.textContent = "Download";
-          showErrorModal(`Error creating ZIP file: ${error.message}. Please try again.`);
-        } finally {
-          downloadBtn.disabled = false;
+      try {
+        // Check if JSZip is available
+        if (typeof JSZip === 'undefined') {
+          throw new Error('JSZip library not loaded');
         }
+        
+        const zip = new JSZip();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        let zipName = `squeezed-${timestamp}`;
+        
+        let processedCount = 0;
+
+        // Generate optimized images for all uploaded images with individual settings
+        for (let i = 0; i < uploadedImages.length; i++) {
+          // Update progress
+          downloadBtnText.textContent = `Processing ${i + 1}/${uploadedImages.length}...`;
+          
+          const imageData = uploadedImages[i];
+          const settings = individualSettings[i] || { quality: 85, format: imageData.type };
+          
+          try {
+            const optimized = await generateOptimizedImage(imageData.file, settings.format, settings.quality / 100);
+            
+            // Get base name without extension
+            let baseName = imageData.name;
+            const lastDot = baseName.lastIndexOf(".");
+            if (lastDot > 0) {
+              baseName = baseName.substring(0, lastDot);
+            }
+
+            // Use the final format that was actually used for optimization
+            const finalFormat = settings.finalFormat || settings.format;
+            const fileName = `${baseName}-optimized.${getFormatExtension(finalFormat)}`;
+            
+            zip.file(fileName, optimized.blob);
+            processedCount++;
+            
+            // Clean up blob URL if it was created
+            if (optimized.dataUrl && optimized.dataUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(optimized.dataUrl);
+            }
+          } catch (error) {
+            console.error(`Error processing ${imageData.name}:`, error);
+            // Continue with other files
+          }
+        }
+
+        if (processedCount === 0) {
+          throw new Error('No images were successfully processed');
+        }
+        
+        // Generate and download zip
+        downloadBtnText.textContent = "Generating ZIP...";
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        
+        if (!zipBlob || zipBlob.size === 0) {
+          throw new Error('Generated ZIP file is empty or invalid');
+        }
+        
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = `${zipName}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up zip blob URL
+        URL.revokeObjectURL(link.href);
+
+        // Update download button text
+        downloadBtnText.textContent = `Download ZIP (${uploadedImages.length} images)`;
+      } catch (error) {
+        console.error("Error creating ZIP:", error);
+        downloadBtnText.textContent = "Download";
+        showErrorModal(`Error creating ZIP file: ${error.message}. Please try again.`);
+      } finally {
+        downloadBtn.disabled = false;
       }
     }
 
@@ -2164,6 +2177,58 @@
 
     // Start the app
     init();
+
+    // Helper to sync both download buttons
+    function setDownloadButtonsEnabled(enabled) {
+      if (downloadBtn) downloadBtn.disabled = !enabled;
+      const floatingBtn = document.getElementById('floatingDownloadBtn')?.querySelector('button');
+      if (floatingBtn) floatingBtn.disabled = !enabled;
+    }
+
+    // In optimizeImage, after successful optimization:
+    // Replace:
+    // downloadBtn.disabled = false;
+    // With:
+    setDownloadButtonsEnabled(true);
+
+    // When no image is loaded or optimization fails:
+    // Replace:
+    // downloadBtn.disabled = true;
+    // With:
+    setDownloadButtonsEnabled(false);
+
+    // Also, after DOMContentLoaded or init(), call this to sync state:
+    setDownloadButtonsEnabled(false);
+
+    // Ensure downloadImage is globally accessible
+    window.downloadImage = downloadImage;
+
+    // Hide floating download button by default
+    document.getElementById('floatingDownloadBtn').style.display = 'none';
+
+    // In showCanvasPage (where zoom controls are shown), also show floating download button
+    function showCanvasPage() {
+      dropZone.classList.add("hidden");
+      canvas.style.display = "block";
+      comparisonSlider.style.display = "block";
+      zoomControls.style.display = "flex";
+      dragNotice.style.display = "block";
+      // Show floating download button
+      document.getElementById('floatingDownloadBtn').style.display = 'flex';
+      // Don't show control panel here - it will be shown when optimization is complete
+    }
+
+    // In showUploadPage (where zoom controls are hidden), also hide floating download button
+    function showUploadPage() {
+      dropZone.classList.remove("hidden");
+      canvas.style.display = "none";
+      comparisonSlider.style.display = "none";
+      zoomControls.style.display = "none";
+      dragNotice.style.display = "none";
+      // Hide floating download button
+      document.getElementById('floatingDownloadBtn').style.display = 'none';
+      controlPanel.classList.add("hidden");
+    }
   </script>
 </body>
 
