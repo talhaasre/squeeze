@@ -233,8 +233,8 @@
     const floatingDownloadBtn = document.getElementById("floatingDownloadBtn");
 
     // Configuration constants
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
-    const MAX_FILES = 20; // Maximum 20 files at once
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+    const MAX_FILES = 10; // Maximum 10 files at once
 
     // State variables
     let originalImage = new Image();
