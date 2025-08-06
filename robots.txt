@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://squeeze.asresoft.com/sitemap.xml
+Sitemap: https://compress-app.com/sitemap.xml
