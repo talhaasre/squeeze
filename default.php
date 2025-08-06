@@ -230,6 +230,7 @@
     const clearAllBtn = document.getElementById("clearAllBtn");
     const downloadBtnText = document.getElementById("downloadBtnText");
     const applyToAllBtn = document.getElementById("applyToAllBtn");
+    const floatingDownloadBtn = document.getElementById("floatingDownloadBtn");
 
     // Configuration constants
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
@@ -1285,6 +1286,7 @@
       hasIndividualFormats = false;
       resetState();
       imageGallery.style.display = "none";
+      floatingDownloadBtn.style.display = 'none';
     }
 
     // Apply same format to all images
@@ -1399,7 +1401,7 @@
       dragNotice.style.display = "block";
       // Show floating download button only on mobile
       if (window.innerWidth < 768) {
-        document.getElementById('floatingDownloadBtn').style.display = 'flex';
+        floatingDownloadBtn.style.display = 'flex';
       }
       // Don't show control panel here - it will be shown when optimization is complete
     }
@@ -1739,7 +1741,7 @@
     // Download image(s)
     async function downloadImage() {
       // Get the floating button and its icon
-      const floatingBtn = document.getElementById('floatingDownloadBtn')?.querySelector('button');
+      const floatingBtn = floatingDownloadBtn?.querySelector('button');
       const floatingIcon = floatingBtn?.querySelector('i');
 
       // Show spinner on floating button
@@ -2213,7 +2215,7 @@
     // Helper to sync both download buttons
     function setDownloadButtonsEnabled(enabled) {
       if (downloadBtn) downloadBtn.disabled = !enabled;
-      const floatingBtn = document.getElementById('floatingDownloadBtn')?.querySelector('button');
+      const floatingBtn = floatingDownloadBtn?.querySelector('button');
       if (floatingBtn) floatingBtn.disabled = !enabled;
     }
 
@@ -2236,11 +2238,11 @@
     window.downloadImage = downloadImage;
 
     // Hide floating download button by default
-    document.getElementById('floatingDownloadBtn').style.display = 'none';
+    floatingDownloadBtn.style.display = 'none';
 
     // Responsive update on resize
     window.addEventListener('resize', function () {
-      const btn = document.getElementById('floatingDownloadBtn');
+      const btn = floatingDownloadBtn;
       if (window.innerWidth < 768 && btn.style.display !== 'flex' && canvas.style.display === 'block') {
         btn.style.display = 'flex';
       } else if (window.innerWidth >= 768) {
