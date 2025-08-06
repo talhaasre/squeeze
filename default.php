@@ -721,7 +721,7 @@
       const errorMessage = document.getElementById('errorMessage');
 
       // Check if message contains file lists and format accordingly
-      if (message.includes('Oversized files (max 50 MB each):') || message.includes('Unsupported files:') || message.includes('Valid files:') || message.includes('Excess files:') || message.includes('Too many files selected')) {
+      if (message.includes('Oversized files (max 10 MB each):') || message.includes('Unsupported files:') || message.includes('Valid files:') || message.includes('Excess files:') || message.includes('Too many files selected')) {
         // Format as HTML with icons
         let htmlMessage = '';
         const lines = message.split('\n');
@@ -735,7 +735,7 @@
           } else if (line.includes('Excess files:')) {
             currentSection = 'excess';
             htmlMessage += `<div class="error-section"><h4><i class="fas fa-minus-circle text-secondary"></i> ${line}</h4>`;
-          } else if (line.includes('Oversized files (max 50 MB each):')) {
+          } else if (line.includes('Oversized files (max 10 MB each):')) {
             currentSection = 'oversized';
             htmlMessage += `<div class="error-section"><h4><i class="fas fa-exclamation-triangle text-warning"></i> ${line}</h4>`;
           } else if (line.includes('Unsupported files:')) {
@@ -954,7 +954,7 @@
       if (oversizedFiles.length > 0) {
         hasErrors = true;
         const oversizedFilesList = oversizedFiles.map((name, index) => `${index + 1}. ${name.name}`).join('\n');
-        errorMessage += `Oversized files (max 50 MB each):\n${oversizedFilesList}\n\n`;
+        errorMessage += `Oversized files (max 10 MB each):\n${oversizedFilesList}\n\n`;
       }
 
       // Check for unsupported files
@@ -1065,7 +1065,7 @@
             URL.revokeObjectURL(objectUrl);
 
             // Show user-friendly error for large files
-            if (file.size > 50 * 1024 * 1024) { // 50MB threshold
+            if (file.size > MAX_FILE_SIZE) { 
               showErrorModal(`Failed to load large image: ${file.name}\n\nThis file may be too large for your browser to handle. Try:\n• Reducing the image size before uploading\n• Using a different browser\n• Breaking the file into smaller parts`);
             }
 
