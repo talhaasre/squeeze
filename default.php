@@ -27,12 +27,6 @@
   <title>Free Online Image Compressor | COMPRESS – Compress & Compare Images</title>
   <meta name="description"
     content="COMPRESS is a fast, free online image compressor that reduces image size in bulk with real-time quality comparison. PNG, JPG, WebP supported.">
-  <meta property="og:title" content="COMPRESS – Compress Images Online with Comparison">
-  <meta property="og:description"
-    content="Compress multiple images online and compare quality in real-time. Free, fast, and secure.">
-  <meta property="og:image" content="https://compress-app.com/assets/social-thumbnail.jpg">
-  <meta property="og:url" content="https://compress-app.com/">
-  <meta name="twitter:card" content="android-chrome-512x512.png">
   <link rel="canonical" href="https://compress-app.com" />
 
   <!-- Favicon -->
@@ -43,6 +37,27 @@
   <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="android-chrome-512x512.png">
   <link rel="manifest" href="site.webmanifest">
+
+  <!-- Facebook Meta Tags -->
+  <meta property="og:url" content="https://compress-app.com">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Free Online Image Compressor | COMPRESS – Compress & Compare Images">
+  <meta property="og:description"
+    content="COMPRESS is a fast, free online image compressor that reduces image size in bulk with real-time quality comparison. PNG, JPG, WebP supported.">
+  <meta property="og:image"
+    content="https://compress-app.com/compress-app-logo.svg">
+
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="https://compress-app.com/compress-app-logo.svg">
+  <meta property="twitter:domain" content="compress-app.com">
+  <meta property="twitter:url" content="https://compress-app.com">
+  <meta name="twitter:title" content="Free Online Image Compressor | COMPRESS – Compress & Compare Images">
+  <meta name="twitter:description"
+    content="COMPRESS is a fast, free online image compressor that reduces image size in bulk with real-time quality comparison. PNG, JPG, WebP supported.">
+  <meta name="twitter:image"
+    content="https://compress-app.com/compress-app-logo.svg">
+
+  <!-- Meta Tags Generated via https://www.opengraph.xyz -->
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="styles/index.css" />
@@ -1065,7 +1080,7 @@
             URL.revokeObjectURL(objectUrl);
 
             // Show user-friendly error for large files
-            if (file.size > MAX_FILE_SIZE) { 
+            if (file.size > MAX_FILE_SIZE) {
               showErrorModal(`Failed to load large image: ${file.name}\n\nThis file may be too large for your browser to handle. Try:\n• Reducing the image size before uploading\n• Using a different browser\n• Breaking the file into smaller parts`);
             }
 
